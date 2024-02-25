@@ -228,6 +228,7 @@ method_configs["neuralangelo"] = Config(
         ),
     ),
     optimizers={
+        '''
         "fields": {
             "optimizer": AdamWOptimizerConfig(lr=1e-3, weight_decay=0.01, eps=1e-15),
             # "scheduler": NeuSSchedulerConfig(warm_up_end=5000, learning_rate_alpha=0.05, max_steps=500000),
@@ -236,6 +237,20 @@ method_configs["neuralangelo"] = Config(
         "field_background": {
             "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
             "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[300_000, 400_000], gamma=0.1),
+        },
+        '''
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": MultiStepSchedulerConfig(max_steps=200000),
+        },
+        "fields": {
+            "optimizer": AdamWOptimizerConfig(lr=1e-3, weight_decay=0.01, eps=1e-15),
+            # "scheduler": NeuSSchedulerConfig(warm_up_end=5000, learning_rate_alpha=0.05, max_steps=500000),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=2000, milestones=[120_000, 160_000], gamma=0.1),
+        },
+        "field_background": {
+            "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=2000, milestones=[120_000, 160_000], gamma=0.1),
         },
     },
     viewer=ViewerConfig(num_rays_per_chunk=1 << 15),

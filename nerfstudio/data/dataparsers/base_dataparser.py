@@ -74,6 +74,10 @@ class DataparserOutputs:
     """Dictionary of any metadata that be required for the given experiment.
     Will be processed by the InputDataset to create any additional tensors that may be required.
     """
+    dataparser_transform: Float[Tensor, "3 4"] = torch.eye(4)[:3, :]
+    """Transform applied by the dataparser."""
+    dataparser_scale: float = 1.0
+    """Scale applied by the dataparser."""
 
     def as_dict(self) -> dict:
         """Returns the dataclass as a dictionary."""

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Tuple
 
+import numpy as np
 import torch
 import tyro
 from rich.console import Console
@@ -19,6 +20,8 @@ from nerfstudio.utils.marching_cubes import (
     get_surface_sliding,
     get_surface_sliding_with_contraction,
 )
+from nerfstudio.utils.io import load_from_json
+from pdb import set_trace as pause
 
 CONSOLE = Console(width=120)
 
@@ -65,7 +68,10 @@ class ExtractMesh:
         assert str(self.output_path)[-4:] == ".ply"
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        _, pipeline, _ = eval_setup(self.load_config)
+        config, pipeline, _ = eval_setup(self.load_config)
+        data_path = config.pipeline.datamanager.dataparser.data 
+        meta = load_from_json(data_path / "meta_data.json")
+        w2gt = np.array(meta["worldtogt"])
 
         CONSOLE.print("Extract mesh with marching cubes and may take a while")
 
@@ -130,6 +136,7 @@ class ExtractMesh:
                 coarse_mask=pipeline.model.scene_box.coarse_binary_gird,
                 output_path=self.output_path,
                 simplify_mesh=self.simplify_mesh,
+                w2gt=w2gt,
             )
 
 

@@ -25,6 +25,7 @@ import torch
 from PIL import Image
 from rich.console import Console
 from torchtyping import TensorType
+import trimesh
 
 from nerfstudio.cameras import camera_utils
 from nerfstudio.cameras.cameras import Cameras, CameraType
@@ -36,9 +37,33 @@ from nerfstudio.data.dataparsers.base_dataparser import (
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.utils.images import BasicImages
 from nerfstudio.utils.io import load_from_json
+from pdb import set_trace as pause
 
 CONSOLE = Console()
 
+import struct
+def read_sdf(filename):
+    # Define the format string for unpacking the floats
+    # '<' for little-endian, '4f' for four floats
+    format_str = '<4f' 
+
+    # Create an empty list to store the read values
+    data = []
+
+    # Open the file in binary mode
+    with open(filename, 'rb') as file:
+        while True:
+            # Read 4 floats (16 bytes) at a time
+            bytes = file.read(16)
+
+            # Break the loop if we've reached the end of the file
+            if not bytes:
+                break
+
+            # Unpack the bytes and append to the data list
+            data.append(struct.unpack(format_str, bytes))
+
+    return np.array(data)
 
 def get_src_from_pairs(
     ref_idx, all_imgs, pairs_srcs, neighbors_num=None, neighbors_shuffle=False
@@ -134,6 +159,26 @@ def get_sparse_sfm_points(image_idx: int, sfm_points):
     return {"sparse_sfm_points": sparse_sfm_points}
 
 
+def get_sdf_samples(image_idx: int, sdf_samples):
+    """function to process additional sdf samples
+
+    Args:
+        image_idx: specific image index to work with
+        sdf samples: sdf points
+    """
+
+    # choices = np.random.RandomState(image_idx).choice(sdf_samples.shape[0], size=10000, replace=False)
+    # if image_idx == 0:
+        # pause()
+    # v1
+    sparse_sdf_samples = sdf_samples[image_idx]
+    # v2
+    # choices = np.random.choice(sdf_samples.shape[0], size=10, replace=False)
+    # sparse_sdf_samples = sdf_samples[choices].reshape(-1, 4)
+    sparse_sdf_samples = BasicImages([sparse_sdf_samples])
+    return {"sparse_sdf_samples": sparse_sdf_samples}
+
+
 @dataclass
 class SDFStudioDataParserConfig(DataParserConfig):
     """Scene dataset parser config"""
@@ -150,6 +195,8 @@ class SDFStudioDataParserConfig(DataParserConfig):
     """whether or not to load foreground mask"""
     include_sfm_points: bool = False
     """whether or not to load sfm points"""
+    include_sdf_samples: bool = False
+    """whether or not to load sdf samples"""
     scale_factor: float = 1.0
     """How much to scale the camera origins by."""
     # TODO supports downsample
@@ -385,6 +432,46 @@ class SDFStudio(DataParser):
             additional_inputs_dict["sfm_points"] = {
                 "func": get_sparse_sfm_points,
                 "kwargs": {"sfm_points": filter_list(sfm_points, indices)},
+            }
+        if self.config.include_sdf_samples:
+            w2gt = np.array(meta["worldtogt"])
+            sdf_fname = self.config.data / "rand_surf-4m.ply"
+            sdf_onsurface = trimesh.load(sdf_fname, preprocess=False).vertices
+            if True:
+                sdf_fname = self.config.data / "near_surf-400k.sdf"
+                sdf_offsurface = read_sdf(sdf_fname)
+                sdf_offsurface = sdf_offsurface[np.abs(sdf_offsurface[:, 3])<1]
+                n_onsurface = sdf_onsurface.shape[0]
+                n_offsurface = sdf_offsurface.shape[0]
+                sdf_samples = np.zeros((n_onsurface + n_offsurface, 4))
+                sdf_samples[:n_onsurface, :3] = sdf_onsurface
+                sdf_samples[n_onsurface:] = sdf_offsurface
+            else:
+                n_onsurface = sdf_onsurface.shape[0]
+                n_offsurface = 0
+                sdf_samples = np.zeros((n_onsurface + n_offsurface, 4))
+                sdf_samples[:n_onsurface, :3] = sdf_onsurface
+            
+            sdf_samples[:, :3] = (sdf_samples[:, :3] - w2gt[:3, 3][None]) / np.diag(w2gt)[:3][None]
+            sdf_samples[:, 3] = sdf_samples[:, 3] / w2gt[0, 0]
+            sdf_samples = torch.from_numpy(sdf_samples).float()
+            n_sdf_samples = sdf_samples.shape[0]
+            choices = np.arange(n_sdf_samples)
+            np.random.shuffle(choices)
+            n_images = len(meta["frames"])
+            npoints_per_image = n_sdf_samples // n_images
+            k = 10000
+            if npoints_per_image > k:
+                npoints_per_image = k
+            sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, -1, 4)
+
+            # choices = np.random.RandomState(image_idx).choice(sdf_samples.shape[0], size=10000, replace=False)
+
+            additional_inputs_dict = {
+                    "sdf_samples": {
+                    "func": get_sdf_samples,
+                    "kwargs": {"sdf_samples": sdf_samples},
+                }
             }
         # load pair information
         pairs_path = self.config.data / "pairs.txt"

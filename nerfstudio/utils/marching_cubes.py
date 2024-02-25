@@ -5,6 +5,7 @@ import pymeshlab
 import torch
 import trimesh
 from skimage import measure
+from pdb import set_trace as pause
 
 avg_pool_3d = torch.nn.AvgPool3d(2, stride=2)
 upsample = torch.nn.Upsample(scale_factor=2, mode="nearest")
@@ -22,6 +23,7 @@ def get_surface_sliding(
     coarse_mask=None,
     output_path: Path = Path("test.ply"),
     simplify_mesh=True,
+    w2gt=np.eye(4),
 ):
     assert resolution % 512 == 0
     if coarse_mask is not None:
@@ -144,6 +146,7 @@ def get_surface_sliding(
                     # print(verts.min(), verts.max())
                     verts = verts + np.array([x_min, y_min, z_min])
                     # print(verts.min(), verts.max())
+                    verts = verts * np.diag(w2gt)[:3][None] + w2gt[:3, 3][None] 
 
                     meshcrop = trimesh.Trimesh(verts, faces, normals)
                     # meshcrop.export(f"{i}_{j}_{k}.ply")

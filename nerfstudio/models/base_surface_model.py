@@ -63,6 +63,7 @@ from nerfstudio.model_components.scene_colliders import (
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import colormaps
 from nerfstudio.utils.colors import get_color
+from pdb import set_trace as pause
 
 
 @dataclass
@@ -290,10 +291,26 @@ class SurfaceModel(Model):
         return field_outputs
 
     def get_outputs(self, ray_bundle: RayBundle) -> Dict:
+        outputs = {}
         samples_and_field_outputs = self.sample_and_forward_field(ray_bundle=ray_bundle)
 
         # Shotscuts
         field_outputs = samples_and_field_outputs["field_outputs"]
+        if self.training:
+            grad_points = field_outputs[FieldHeadNames.GRADIENT]
+            points_norm = field_outputs["points_norm"]
+            outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
+
+            # TODO volsdf use different point set for eikonal loss
+            # grad_points = self.field.gradient(eik_points)
+            # outputs.update({"eik_grad": grad_points})
+
+            outputs.update(samples_and_field_outputs)
+
+        if self.config.loss_coefficients["rgb_loss_coarse"] == 0 and self.training:
+            outputs.update({"rgb": torch.zeros_like(grad_points[:, 0])})
+            return outputs
+
         ray_samples = samples_and_field_outputs["ray_samples"]
         weights = samples_and_field_outputs["weights"]
 
@@ -328,7 +345,7 @@ class SurfaceModel(Model):
             # merge background color to forgound color
             rgb = rgb + bg_transmittance * rgb_bg
 
-        outputs = {
+        outputs.update({
             "rgb": rgb,
             "accumulation": accumulation,
             "depth": depth,
@@ -338,18 +355,7 @@ class SurfaceModel(Model):
                 ray_samples.frustums.get_start_positions()
             ),  # used for creating visiblity mask
             "directions_norm": ray_bundle.directions_norm,  # used to scale z_vals for free space and sdf loss
-        }
-
-        if self.training:
-            grad_points = field_outputs[FieldHeadNames.GRADIENT]
-            points_norm = field_outputs["points_norm"]
-            outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
-
-            # TODO volsdf use different point set for eikonal loss
-            # grad_points = self.field.gradient(eik_points)
-            # outputs.update({"eik_grad": grad_points})
-
-            outputs.update(samples_and_field_outputs)
+        })
 
         # TODO how can we move it to neus_facto without out of memory
         if "weights_list" in samples_and_field_outputs:
@@ -398,12 +404,24 @@ class SurfaceModel(Model):
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict:
         loss_dict = {}
-        image = batch["image"].to(self.device)
-        loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
+        if self.config.loss_coefficients["rgb_loss_coarse"] != 0 or (not self.training):
+            image = batch["image"].to(self.device)
+            loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
         if self.training:
             # eikonal loss
             grad_theta = outputs["eik_grad"]
             loss_dict["eikonal_loss"] = ((grad_theta.norm(2, dim=-1) - 1) ** 2).mean() * self.config.eikonal_loss_mult
+
+            # sparse sdf sample loss
+            if "sparse_sdf_samples" in batch and self.config.sparse_points_sdf_loss_mult > 0.0:
+                sparse_sdf_samples = batch["sparse_sdf_samples"].to(self.device)
+                sparse_sdf_samples_sdf = self.field.forward_geonetwork(sparse_sdf_samples[:, :3])[:, 0].contiguous()
+                loss_dict["sparse_sdf_samples_loss"] = (
+                        torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3])) * self.config.sparse_points_sdf_loss_mult
+                )
+
+            if self.config.loss_coefficients["rgb_loss_coarse"] == 0:
+                return loss_dict
             # s3im loss
             if self.config.s3im_loss_mult > 0:
                 loss_dict["s3im_loss"] = self.s3im_loss(image, outputs["rgb"]) * self.config.s3im_loss_mult

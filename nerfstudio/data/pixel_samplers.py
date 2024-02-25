@@ -22,6 +22,7 @@ from typing import Dict
 import torch
 
 from nerfstudio.utils.images import BasicImages
+from pdb import set_trace as pause
 
 
 def collate_image_dataset_batch(batch: Dict, num_rays_per_batch: int, keep_full_image: bool = False):
@@ -54,13 +55,15 @@ def collate_image_dataset_batch(batch: Dict, num_rays_per_batch: int, keep_full_
     collated_batch = {
         key: value[c, y, x]
         for key, value in batch.items()
-        if key not in ("image_idx", "src_imgs", "src_idxs", "sparse_sfm_points") and value is not None
+        if key not in ("image_idx", "src_imgs", "src_idxs", "sparse_sfm_points", "sparse_sdf_samples") and value is not None
     }
 
     assert collated_batch["image"].shape == (num_rays_per_batch, 3), collated_batch["image"].shape
 
     if "sparse_sfm_points" in batch:
         collated_batch["sparse_sfm_points"] = batch["sparse_sfm_points"].images[c[0]]
+    if "sparse_sdf_samples" in batch:
+        collated_batch["sparse_sdf_samples"] = batch["sparse_sdf_samples"].images[c[0]]
 
     # Needed to correct the random indices to their actual camera idx locations.
     indices[:, 0] = batch["image_idx"][c]
