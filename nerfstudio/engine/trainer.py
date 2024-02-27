@@ -22,6 +22,7 @@ import functools
 import os
 import time
 from typing import Dict, List, Tuple
+from glob import glob
 
 import torch
 from rich.console import Console
@@ -45,6 +46,7 @@ from nerfstudio.utils.decorators import (
 from nerfstudio.utils.misc import step_check
 from nerfstudio.utils.writer import EventName, TimeWriter
 from nerfstudio.viewer.server import viewer_utils
+from pdb import set_trace as pause
 
 CONSOLE = Console(width=120)
 
@@ -254,7 +256,26 @@ class Trainer:
     def _load_checkpoint(self) -> None:
         """Helper function to load pipeline and optimizer from prespecified checkpoint"""
         load_dir = self.config.trainer.load_dir
-        if load_dir is not None:
+        if "ngp_models" in str(load_dir):
+            load_path = glob(str(load_dir) + "/*")[0]
+            loaded_state = torch.load(load_path, map_location="cpu")
+            # load the checkpoints for pipeline, optimizers, and gradient scalar
+            # pause()
+            self.pipeline._model.field.glin0.weight.data = loaded_state["model"]['backbone.0.weight'].cuda()
+            self.pipeline._model.field.glin1.weight.data = loaded_state["model"]['backbone.1.weight'].cuda()
+            if self.config.pipeline.model.sdf_field.fix_geonet:
+                self.pipeline._model.field.glin0.weight.requires_grad = False
+                self.pipeline._model.field.glin1.weight.requires_grad = False
+            if 'backbone.2.weight' in loaded_state["model"].keys():
+                self.pipeline._model.field.glin2.weight.data = loaded_state["model"]['backbone.2.weight'].cuda()
+                if self.config.pipeline.model.sdf_field.fix_geonet:
+                    self.pipeline._model.field.glin2.weight.requires_grad = False
+            # else:
+                # self.pipeline._model.field.glin1.weight.data[:1] = loaded_state["model"]['backbone.1.weight'].cuda()
+                
+            CONSOLE.print(f"done loading checkpoint from {load_path}")
+
+        elif load_dir is not None:
             load_step = self.config.trainer.load_step
             if load_step is None:
                 print("Loading latest checkpoint from load_dir")

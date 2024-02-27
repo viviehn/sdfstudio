@@ -23,7 +23,8 @@ from typing import Callable, Dict, Union
 
 import torch
 import torch.utils.data
-from torch._six import string_classes
+# from torch._six import string_classes
+string_classes = str
 
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.utils.images import BasicImages

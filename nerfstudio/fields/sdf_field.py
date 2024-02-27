@@ -38,6 +38,7 @@ from nerfstudio.field_components.encodings import (
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.spatial_distortions import SpatialDistortion
 from nerfstudio.fields.base_field import Field, FieldConfig
+from nerfstudio.encoding import get_encoder
 
 try:
     import tinycudann as tcnn
@@ -45,6 +46,7 @@ except ImportError:
     # tinycudann module doesn't exist
     pass
 
+from pdb import set_trace as pause
 
 class LaplaceDensity(nn.Module):  # alpha * Laplace(loc=0, scale=beta).cdf(-sdf)
     """Laplace density from VolSDF"""
@@ -183,6 +185,10 @@ class SDFFieldConfig(FieldConfig):
     """whether to use smoothstep for multi-resolution hash grids"""
     use_position_encoding: bool = True
     """whether to use positional encoding as input for geometric network"""
+    vanilla_ngp: bool = False
+    """whether to use positions (xyz & positional encoding) as input for geometric network"""
+    fix_geonet: bool = False
+    """whether to fix pretrained geometric network"""
 
 
 class SDFField(Field):
@@ -227,18 +233,31 @@ class SDFField(Field):
 
         if self.config.encoding_type == "hash":
             # feature encoding
-            self.encoding = tcnn.Encoding(
-                n_input_dims=3,
-                encoding_config={
-                    "otype": "HashGrid" if use_hash else "DenseGrid",
-                    "n_levels": self.num_levels,
-                    "n_features_per_level": self.features_per_level,
-                    "log2_hashmap_size": self.log2_hashmap_size,
-                    "base_resolution": self.base_res,
-                    "per_level_scale": self.growth_factor,
-                    "interpolation": "Smoothstep" if smoothstep else "Linear",
-                },
-            )
+            if self.config.vanilla_ngp:
+                self.encoding, in_dim = get_encoder(  #encoding,
+                    "hashgrid",
+                    input_dim=3, 
+                    multires=6, 
+                    degree=4,
+                    num_levels=self.num_levels, level_dim=self.features_per_level, 
+                    base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
+                    desired_resolution=self.max_res, 
+                    align_corners=False,
+                    )
+            else:
+                self.encoding = tcnn.Encoding(
+                    n_input_dims=3,
+                    encoding_config={
+                        "otype": "HashGrid" if use_hash else "DenseGrid",
+                        "n_levels": self.num_levels,
+                        "n_features_per_level": self.features_per_level,
+                        "log2_hashmap_size": self.log2_hashmap_size,
+                        "base_resolution": self.base_res,
+                        "per_level_scale": self.growth_factor,
+                        "interpolation": "Smoothstep" if smoothstep else "Linear",
+                    },
+                )
+                in_dim = self.encoding.n_output_dims
             self.hash_encoding_mask = torch.ones(
                 self.num_levels * self.features_per_level,
                 dtype=torch.float32,
@@ -275,8 +294,11 @@ class SDFField(Field):
         # TODO move it to field components
         # MLP with geometric initialization
         dims = [self.config.hidden_dim for _ in range(self.config.num_layers)]
-        in_dim = 3 + self.position_encoding.get_out_dim() + self.encoding.n_output_dims
-        dims = [in_dim] + dims + [1 + self.config.geo_feat_dim]
+        if not self.config.vanilla_ngp:
+            in_dim += 3 + self.position_encoding.get_out_dim()
+            dims = [in_dim] + dims + [1 + self.config.geo_feat_dim]
+        else:
+            dims = [in_dim] + dims + [self.config.geo_feat_dim]
         self.num_layers = len(dims)
         # TODO check how to merge skip_in to config
         self.skip_in = [4]
@@ -287,32 +309,45 @@ class SDFField(Field):
             else:
                 out_dim = dims[l + 1]
 
-            lin = nn.Linear(dims[l], out_dim)
+            lin = nn.Linear(dims[l], out_dim, bias=not self.config.vanilla_ngp)
 
             if self.config.geometric_init:
                 if l == self.num_layers - 2:
                     if not self.config.inside_outside:
                         torch.nn.init.normal_(lin.weight, mean=np.sqrt(np.pi) / np.sqrt(dims[l]), std=0.0001)
-                        torch.nn.init.constant_(lin.bias, -self.config.bias)
+                        if not self.config.vanilla_ngp:
+                            torch.nn.init.constant_(lin.bias, -self.config.bias)
                     else:
                         torch.nn.init.normal_(lin.weight, mean=-np.sqrt(np.pi) / np.sqrt(dims[l]), std=0.0001)
-                        torch.nn.init.constant_(lin.bias, self.config.bias)
+                        if not self.config.vanilla_ngp:
+                            torch.nn.init.constant_(lin.bias, self.config.bias)
                 elif l == 0:
-                    torch.nn.init.constant_(lin.bias, 0.0)
+                    if not self.config.vanilla_ngp:
+                        torch.nn.init.constant_(lin.bias, 0.0)
                     torch.nn.init.constant_(lin.weight[:, 3:], 0.0)
                     torch.nn.init.normal_(lin.weight[:, :3], 0.0, np.sqrt(2) / np.sqrt(out_dim))
                 elif l in self.skip_in:
-                    torch.nn.init.constant_(lin.bias, 0.0)
+                    if not self.config.vanilla_ngp:
+                        torch.nn.init.constant_(lin.bias, 0.0)
                     torch.nn.init.normal_(lin.weight, 0.0, np.sqrt(2) / np.sqrt(out_dim))
                     torch.nn.init.constant_(lin.weight[:, -(dims[0] - 3) :], 0.0)
                 else:
-                    torch.nn.init.constant_(lin.bias, 0.0)
+                    if not self.config.vanilla_ngp:
+                        torch.nn.init.constant_(lin.bias, 0.0)
                     torch.nn.init.normal_(lin.weight, 0.0, np.sqrt(2) / np.sqrt(out_dim))
 
-            if self.config.weight_norm:
+            if self.config.weight_norm and not self.config.vanilla_ngp:
                 lin = nn.utils.weight_norm(lin)
                 # print("=======", lin.weight.shape)
-            setattr(self, "glin" + str(l), lin)
+            if l == self.num_layers - 2:
+                lin_sdf = nn.Linear(dims[l], 1, bias=not self.config.vanilla_ngp)
+                lin_sdf.weight.data = lin.weight[:1] * 1.0
+                if not self.config.vanilla_ngp:
+                    lin_sdf.bias.data = lin.bias * 1.0
+                setattr(self, "glin" + str(l), lin_sdf)
+                setattr(self, "glin" + str(l+1), lin)
+            else:
+                setattr(self, "glin" + str(l), lin)
 
         # laplace function for transform sdf to density from VolSDF
         self.laplace_density = LaplaceDensity(init_val=self.config.beta_init)
@@ -379,21 +414,33 @@ class SDFField(Field):
         
     def forward_geonetwork(self, inputs):
         """forward the geonetwork"""
+        # inputs = torch.ones_like(inputs)[:90000]
+        # inputs[:, 0] *= torch.arange(90000).cuda() / 90000 - 0.5
+        # inputs[:, 1] *= -torch.arange(90000).cuda() / 90000
+        # inputs[:, 2] *= 1-torch.arange(90000).cuda() / 90000
+        # inputs *= 2
         if self.use_grid_feature:
             #TODO normalize inputs depending on the whether we model the background or not
-            positions = (inputs + 2.0) / 4.0
+            if self.config.vanilla_ngp:
+                positions = inputs / 2
+            else:
+                positions = (inputs + 2.0) / 4.0
             # positions = (inputs + 1.0) / 2.0
             feature = self.encoding(positions)
             # mask feature
-            feature = feature * self.hash_encoding_mask.to(feature.device)
+            if not self.config.vanilla_ngp:
+                feature = feature * self.hash_encoding_mask.to(feature.device)
         else:
             feature = torch.zeros_like(inputs[:, :1].repeat(1, self.encoding.n_output_dims))
 
-        pe = self.position_encoding(inputs)
-        if not self.config.use_position_encoding:
-            pe = torch.zeros_like(pe)
-        
-        inputs = torch.cat((inputs, pe, feature), dim=-1)
+        if not self.config.vanilla_ngp:
+            pe = self.position_encoding(inputs)
+            if not self.config.use_position_encoding:
+                pe = torch.zeros_like(pe)
+            
+            inputs = torch.cat((inputs, pe, feature), dim=-1)
+        else:
+            inputs = feature.float()
 
         x = inputs
 
@@ -403,10 +450,18 @@ class SDFField(Field):
             if l in self.skip_in:
                 x = torch.cat([x, inputs], 1) / np.sqrt(2)
 
+            if l == self.num_layers - 2:
+                lin_geofeat = getattr(self, "glin" + str(l+1))
+                x_geofeat = lin_geofeat(x)
             x = lin(x)
 
             if l < self.num_layers - 2:
-                x = self.softplus(x)
+                if self.config.vanilla_ngp:
+                    x = self.relu(x)
+                else:
+                    x = self.softplus(x)
+        # pause()
+        x = torch.cat((x, x_geofeat), -1)
         return x
 
     def get_sdf(self, ray_samples: RaySamples):

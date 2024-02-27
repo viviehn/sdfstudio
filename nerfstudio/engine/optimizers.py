@@ -26,7 +26,7 @@ from torch.nn.parameter import Parameter
 
 from nerfstudio.configs import base_config
 from nerfstudio.utils import writer
-
+from pdb import set_trace as pause
 
 # Optimizer related configs
 @dataclass
