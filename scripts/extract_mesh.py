@@ -72,6 +72,12 @@ class ExtractMesh:
         data_path = config.pipeline.datamanager.dataparser.data 
         meta = load_from_json(data_path / "meta_data.json")
         w2gt = np.array(meta["worldtogt"])
+        self.bounding_box_min = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_min
+        self.bounding_box_max = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_max
+        if "785e7504b9" in str(data_path):
+            self.bounding_box_min = (-0.8833908, -0.8145288, -0.28770024) 
+            self.bounding_box_max = (0.88231796, 0.8690518, 0.28507677)
+
 
         CONSOLE.print("Extract mesh with marching cubes and may take a while")
 

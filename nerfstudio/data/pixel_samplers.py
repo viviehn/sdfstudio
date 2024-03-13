@@ -51,7 +51,6 @@ def collate_image_dataset_batch(batch: Dict, num_rays_per_batch: int, keep_full_
         ).long()
 
     c, y, x = (i.flatten() for i in torch.split(indices, 1, dim=-1))
-
     collated_batch = {
         key: value[c, y, x]
         for key, value in batch.items()
@@ -59,7 +58,7 @@ def collate_image_dataset_batch(batch: Dict, num_rays_per_batch: int, keep_full_
     }
 
     assert collated_batch["image"].shape == (num_rays_per_batch, 3), collated_batch["image"].shape
-
+    # pause()
     if "sparse_sfm_points" in batch:
         collated_batch["sparse_sfm_points"] = batch["sparse_sfm_points"].images[c[0]]
     if "sparse_sdf_samples" in batch:
@@ -69,8 +68,12 @@ def collate_image_dataset_batch(batch: Dict, num_rays_per_batch: int, keep_full_
     indices[:, 0] = batch["image_idx"][c]
     collated_batch["indices"] = indices  # with the abs camera indices
 
+    if batch['image'].dtype == torch.uint8:
+        collated_batch['image'] = collated_batch['image'].float() / 255.0
     if keep_full_image:
         collated_batch["full_image"] = batch["image"]
+        if batch['image'].dtype == torch.uint8:
+            collated_batch['full_image'] = collated_batch['full_image'].float() / 255.0
 
     return collated_batch
 
@@ -190,6 +193,7 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
         Args:
             image_batch: batch of images to sample from
         """
+        # pause()
         if isinstance(image_batch["image"], list):
             image_batch = dict(image_batch.items())  # copy the dictioary so we don't modify the original
             pixel_batch = collate_image_dataset_batch_list(

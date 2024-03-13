@@ -46,6 +46,7 @@ from nerfstudio.utils.decorators import (
 from nerfstudio.utils.misc import step_check
 from nerfstudio.utils.writer import EventName, TimeWriter
 from nerfstudio.viewer.server import viewer_utils
+from torch_ema import ExponentialMovingAverage
 from pdb import set_trace as pause
 
 CONSOLE = Console(width=120)
@@ -129,6 +130,12 @@ class Trainer:
                 config=self.config.trainer,  # type: ignore
             )
         )
+        if False:
+        # if True:
+            ema_decay = 0.95
+            self.ema = ExponentialMovingAverage(self.pipeline.model.field.parameters(), decay=ema_decay) 
+        else:
+            self.ema = None
 
     def train(self) -> None:
         """Train the model."""
@@ -138,9 +145,13 @@ class Trainer:
         with TimeWriter(writer, EventName.TOTAL_TRAIN_TIME):
             num_iterations = self.config.trainer.max_num_iterations
             step = 0
+            # TODO loss weight
+            n_images = self.pipeline.datamanager.dataparser.n_images 
             for step in range(self._start_step, self._start_step + num_iterations):
                 with TimeWriter(writer, EventName.ITER_TRAIN_TIME, step=step) as train_t:
-
+                    if n_images > 0 and step > 0 and step % n_images ==0:
+                        part = step // n_images
+                        self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']["kwargs"]["sdf_samples"]=self.pipeline.datamanager.dataparser.load_sdf_samples(part, "train")
                     self.pipeline.train()
 
                     # training callbacks before the training iteration
@@ -267,9 +278,12 @@ class Trainer:
                 self.pipeline._model.field.glin0.weight.requires_grad = False
                 self.pipeline._model.field.glin1.weight.requires_grad = False
             if 'backbone.2.weight' in loaded_state["model"].keys():
-                self.pipeline._model.field.glin2.weight.data = loaded_state["model"]['backbone.2.weight'].cuda()
+                self.pipeline._model.field.glin2.weight.data = loaded_state["model"]['backbone.2.weight'].cuda()[:1]
                 if self.config.pipeline.model.sdf_field.fix_geonet:
                     self.pipeline._model.field.glin2.weight.requires_grad = False
+                self.pipeline._model.field.glin3.weight.data = loaded_state["model"]['backbone.2.weight'].cuda()[1:]
+                if self.config.pipeline.model.sdf_field.fix_geonet:
+                    self.pipeline._model.field.glin3.weight.requires_grad = False
             # else:
                 # self.pipeline._model.field.glin1.weight.data[:1] = loaded_state["model"]['backbone.1.weight'].cuda()
                 
@@ -284,9 +298,22 @@ class Trainer:
             load_path = load_dir / f"step-{load_step:09d}.ckpt"
             assert load_path.exists(), f"Checkpoint {load_path} does not exist"
             loaded_state = torch.load(load_path, map_location="cpu")
-            self._start_step = loaded_state["step"] + 1
             # load the checkpoints for pipeline, optimizers, and gradient scalar
             self.pipeline.load_pipeline(loaded_state["pipeline"])
+            if self.config.pipeline.model.sdf_field.fix_geonet:
+                self.pipeline._model.field.glin0.weight.requires_grad = False
+                self.pipeline._model.field.glin1.weight.requires_grad = False
+                self.pipeline._model.field.glin2.weight.requires_grad = False
+                if not self.config.pipeline.model.sdf_field.vanilla_ngp:
+                    self.pipeline._model.field.glin0.bias.requires_grad = False
+                    self.pipeline._model.field.glin1.bias.requires_grad = False
+                    self.pipeline._model.field.glin2.bias.requires_grad = False
+                else:
+                    self.pipeline._model.field.glin3.weight.requires_grad = False
+            if True:
+                print("counting training step from 0, didn't load optimizers and schedulers")
+                return
+            self._start_step = loaded_state["step"] + 1
             self.optimizers.load_optimizers(loaded_state["optimizers"])
             if "schedulers" in loaded_state and self.config.trainer.load_scheduler:
                 self.optimizers.load_schedulers(loaded_state["schedulers"])
@@ -342,7 +369,11 @@ class Trainer:
             self.grad_scaler.scale(loss).backward()  # type: ignore
         self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
         self.grad_scaler.update()
+        # pause()
+        if self.ema is not None:
+            self.ema.update()
         self.optimizers.scheduler_step_all(step)
+
 
         # only return the last accumulate_grad_step's loss and metric for logging
         # Merging loss and metrics dict into a single output.

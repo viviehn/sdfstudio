@@ -37,6 +37,7 @@ from nerfstudio.fields.density_fields import HashMLPDensityField
 from nerfstudio.model_components.losses import interlevel_loss, interlevel_loss_zip
 from nerfstudio.model_components.ray_samplers import ProposalNetworkSampler
 from nerfstudio.utils import colormaps
+from pdb import set_trace as pause
 
 
 @dataclass
@@ -280,6 +281,11 @@ class NeuSFactoModel(NeuSModel):
         return callbacks
 
     def sample_and_forward_field(self, ray_bundle: RayBundle):
+        # pause()
+        if isinstance(ray_bundle, torch.Tensor):
+            field_outputs = self.field(ray_bundle, return_alphas=False)
+            return {"field_outputs": field_outputs}
+
         ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
 
         field_outputs = self.field(ray_samples, return_alphas=True)
@@ -304,18 +310,20 @@ class NeuSFactoModel(NeuSModel):
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = super().get_loss_dict(outputs, batch, metrics_dict)
 
-        if self.training:
+        if self.training and not "sparse_sdf_samples" in batch.keys():
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss_zip(
                 outputs["weights_list"], outputs["ray_samples_list"]
             )
 
         # curvature loss
-        if self.training and self.config.curvature_loss_multi > 0.0:
+        if self.training and self.config.curvature_loss_multi > 0.0 and self.config.sdf_field.use_numerical_gradients:
             delta = self.field.numerical_gradients_delta
             centered_sdf = outputs["field_outputs"][FieldHeadNames.SDF]
             sourounding_sdf = outputs["field_outputs"]["sampled_sdf"]
+            # pause()
 
-            sourounding_sdf = sourounding_sdf.reshape(centered_sdf.shape[:2] + (3, 2))
+            # sourounding_sdf = sourounding_sdf.reshape(centered_sdf.shape[:2] + (3, 2))
+            sourounding_sdf = sourounding_sdf.reshape(centered_sdf.shape[:centered_sdf.dim()-1] + (3, 2))
 
             # (a - b)/d - (b -c)/d = (a + c - 2b)/d
             # ((a - b)/d - (b -c)/d)/d = (a + c - 2b)/(d*d)
@@ -327,7 +335,10 @@ class NeuSFactoModel(NeuSModel):
         return loss_dict
 
     def get_metrics_dict(self, outputs, batch) -> Dict:
-        metrics_dict = super().get_metrics_dict(outputs, batch)
+        if "sparse_sdf_samples" in batch.keys():
+            metrics_dict = {}
+        else:
+            metrics_dict = super().get_metrics_dict(outputs, batch)
 
         if self.training:
             # training statics

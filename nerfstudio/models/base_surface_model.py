@@ -65,6 +65,16 @@ from nerfstudio.utils import colormaps
 from nerfstudio.utils.colors import get_color
 from pdb import set_trace as pause
 
+def mape_loss(pred, target, reduction='mean'):
+    # pred, target: [B, 1], torch tenspr
+    difference = (pred - target).abs()
+    scale = 1 / (target.abs() + 1e-2)
+    loss = difference * scale
+
+    if reduction == 'mean':
+        loss = loss.mean()
+    
+    return loss
 
 @dataclass
 class SurfaceModelConfig(ModelConfig):
@@ -293,13 +303,19 @@ class SurfaceModel(Model):
     def get_outputs(self, ray_bundle: RayBundle) -> Dict:
         outputs = {}
         samples_and_field_outputs = self.sample_and_forward_field(ray_bundle=ray_bundle)
+        # pause()
 
         # Shotscuts
         field_outputs = samples_and_field_outputs["field_outputs"]
         if self.training:
-            grad_points = field_outputs[FieldHeadNames.GRADIENT]
-            points_norm = field_outputs["points_norm"]
-            outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
+            if FieldHeadNames.GRADIENT in field_outputs:
+                grad_points = field_outputs[FieldHeadNames.GRADIENT]
+                # points_norm = field_outputs["points_norm"]
+                # outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
+                outputs.update({"eik_grad": grad_points})
+            if "points_norm" in field_outputs:
+                points_norm = field_outputs["points_norm"]
+                outputs.update({"points_norm": points_norm})
 
             # TODO volsdf use different point set for eikonal loss
             # grad_points = self.field.gradient(eik_points)
@@ -307,8 +323,10 @@ class SurfaceModel(Model):
 
             outputs.update(samples_and_field_outputs)
 
-        if self.config.loss_coefficients["rgb_loss_coarse"] == 0 and self.training:
-            outputs.update({"rgb": torch.zeros_like(grad_points[:, 0])})
+        # if self.config.loss_coefficients["rgb_loss_coarse"] == 0 and self.training:
+        # TODO
+        if isinstance(ray_bundle, torch.Tensor) and self.training:
+            outputs.update({"rgb": torch.zeros_like(ray_bundle[0, 0])})
             return outputs
 
         ray_samples = samples_and_field_outputs["ray_samples"]
@@ -404,23 +422,30 @@ class SurfaceModel(Model):
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict:
         loss_dict = {}
-        if self.config.loss_coefficients["rgb_loss_coarse"] != 0 or (not self.training):
+        # pause()
+        if "sparse_sdf_samples" not in batch.keys() or not self.training:
             image = batch["image"].to(self.device)
             loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
         if self.training:
-            # eikonal loss
-            grad_theta = outputs["eik_grad"]
-            loss_dict["eikonal_loss"] = ((grad_theta.norm(2, dim=-1) - 1) ** 2).mean() * self.config.eikonal_loss_mult
 
             # sparse sdf sample loss
-            if "sparse_sdf_samples" in batch and self.config.sparse_points_sdf_loss_mult > 0.0:
+            if "sparse_sdf_samples" in batch:  # and self.config.sparse_points_sdf_loss_mult > 0.0:
                 sparse_sdf_samples = batch["sparse_sdf_samples"].to(self.device)
-                sparse_sdf_samples_sdf = self.field.forward_geonetwork(sparse_sdf_samples[:, :3])[:, 0].contiguous()
+                # sparse_sdf_samples_sdf = self.field.forward_geonetwork(sparse_sdf_samples[:, :3])[:, 0].contiguous()
+                sparse_sdf_samples_sdf = outputs['field_outputs'][FieldHeadNames.SDF]
+                # pause()
+                # loss_dict["sparse_sdf_samples_loss"] = mape_loss(sparse_sdf_samples_sdf, sparse_sdf_samples[:, 3:]) * self.config.sparse_points_sdf_loss_mult
                 loss_dict["sparse_sdf_samples_loss"] = (
-                        torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3])) * self.config.sparse_points_sdf_loss_mult
+                        torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3].reshape(sparse_sdf_samples_sdf.shape)))\
+                                * self.config.sparse_points_sdf_loss_mult
                 )
+            # eikonal loss
+            if "eik_grad" in outputs:
+                grad_theta = outputs["eik_grad"]
+                loss_dict["eikonal_loss"] = ((grad_theta.norm(2, dim=-1) - 1) ** 2).mean() * self.config.eikonal_loss_mult
 
-            if self.config.loss_coefficients["rgb_loss_coarse"] == 0:
+            if "sparse_sdf_samples" in batch.keys():
+                # loss_dict["rgb_loss"] = torch.zeros(0).to(self.device)
                 return loss_dict
             # s3im loss
             if self.config.s3im_loss_mult > 0:

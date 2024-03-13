@@ -49,6 +49,7 @@ from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttrib
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import profiler
 from nerfstudio.utils.images import BasicImages
+from pdb import set_trace as pause
 
 
 def module_wrapper(ddp_or_model: Union[DDP, Model]) -> Model:
@@ -120,7 +121,12 @@ class Pipeline(nn.Module):
         if self.world_size > 1 and step:
             assert self.datamanager.train_sampler is not None
             self.datamanager.train_sampler.set_epoch(step)
-        ray_bundle, batch = self.datamanager.next_train(step)
+        # pause()
+        if self.datamanager.config.dataparser.include_sdf_samples:
+            ray_bundle = None
+            batch = self.datamanager
+        else:
+            ray_bundle, batch = self.datamanager.next_train(step)
         model_outputs = self.model(ray_bundle, batch)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
@@ -256,6 +262,7 @@ class VanillaPipeline(Pipeline):
         Args:
             step: current iteration step to update sampler if using DDP (distributed)
         """
+        # pause()
         ray_bundle, batch = self.datamanager.next_train(step)
         model_outputs = self._model(ray_bundle)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
@@ -430,6 +437,8 @@ class VanillaPipeline(Pipeline):
             loaded_state: pre-trained model state dict
         """
         state = {key.replace("module.", ""): value for key, value in loaded_state.items()}
+        if state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
+            state.pop("_model.field.embedding_appearance.embedding.weight")
         if self.test_mode == "inference":
             state.pop("datamanager.train_camera_optimizer.pose_adjustment", None)
             state.pop("datamanager.train_ray_generator.image_coords", None)
@@ -437,7 +446,9 @@ class VanillaPipeline(Pipeline):
             state.pop("datamanager.eval_ray_generator.image_coords", None)
             state.pop("datamanager.eval_ray_generator.pose_optimizer.pose_adjustment", None)
         
-        self.load_state_dict(state)  # type: ignore
+        missing, unexpected = self.load_state_dict(state, strict=False)  # type: ignore
+        print(f"Missing: {missing}")
+        print(f"Unexpected: {unexpected}")
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes

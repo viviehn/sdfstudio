@@ -455,6 +455,10 @@ method_configs["neus-facto-angelo"] = Config(
             "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
             "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000, 800_000], gamma=0.1),
         },
+        # "fields": {
+            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
+        # },
         "field_background": {
             "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
             "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[300_000, 400_000], gamma=0.1),

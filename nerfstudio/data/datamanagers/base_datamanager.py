@@ -64,6 +64,7 @@ from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttrib
 from nerfstudio.model_components.ray_generators import RayGenerator
 from nerfstudio.utils.images import BasicImages
 from nerfstudio.utils.misc import IterableWrapper
+from pdb import set_trace as pause
 
 CONSOLE = Console(width=120)
 
@@ -423,11 +424,19 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
 
     def next_train(self, step: int) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the train dataloader."""
+        # pause()
         self.train_count += 1
         image_batch = next(self.iter_train_image_dataloader)
+        # pause()
         batch = self.train_pixel_sampler.sample(image_batch)
-        ray_indices = batch["indices"]
-        ray_bundle = self.train_ray_generator(ray_indices)
+        # TODO
+        # if True:
+        # if False: 
+        if self.config.dataparser.include_sdf_samples:
+            ray_bundle = batch["sparse_sdf_samples"].to(self.device)
+        else:
+            ray_indices = batch["indices"]
+            ray_bundle = self.train_ray_generator(ray_indices)
         return ray_bundle, batch
 
     def next_eval(self, step: int) -> Tuple[RayBundle, Dict]:
@@ -446,6 +455,8 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
                 batch["image"] = batch["image"].images[0]
                 camera_ray_bundle = camera_ray_bundle.reshape((*batch["image"].shape[:-1], 1))
             image_idx = int(camera_ray_bundle.camera_indices[0, 0, 0])
+            if batch['image'].dtype == torch.uint8:
+                batch['image'] = batch['image'].float() / 255.0
             return image_idx, camera_ray_bundle, batch
         raise ValueError("No more eval images")
 

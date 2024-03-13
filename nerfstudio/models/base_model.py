@@ -33,6 +33,7 @@ from nerfstudio.configs.config_utils import to_immutable_dict
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.model_components.scene_colliders import NearFarCollider
+from pdb import set_trace as pause
 
 
 # Model related configs
@@ -136,8 +137,9 @@ class Model(nn.Module):
             ray_bundle: containing all the information needed to render that ray latents included
         """
 
-        if self.collider is not None:
+        if self.collider is not None and isinstance(ray_bundle, RayBundle):
             ray_bundle = self.collider(ray_bundle)
+        # pause()
 
         return self.get_outputs(ray_bundle)
 

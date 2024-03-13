@@ -31,6 +31,7 @@ from torchtyping import TensorType
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
 from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path
 from nerfstudio.utils.images import BasicImages
+from pdb import set_trace as pause
 
 
 class InputDataset(Dataset):
@@ -83,8 +84,10 @@ class InputDataset(Dataset):
         Args:
             image_idx: The image index in the dataset.
         """
-        image = torch.from_numpy(self.get_numpy_image(image_idx).astype("float32") / 255.0)
+        # image = torch.from_numpy(self.get_numpy_image(image_idx).astype("float32") / 255.0)
+        image = torch.from_numpy(self.get_numpy_image(image_idx))
         if self._dataparser_outputs.alpha_color is not None and image.shape[-1] == 4:
+            image = image.float() / 255.0
             assert image.shape[-1] == 4
             image = image[:, :, :3] * image[:, :, -1:] + self._dataparser_outputs.alpha_color * (1.0 - image[:, :, -1:])
         else:
@@ -97,14 +100,14 @@ class InputDataset(Dataset):
         Args:
             image_idx: The image index in the dataset.
         """
-        if image_idx in self.image_cache:
-            image = self.image_cache[image_idx]
-        else:
-            image = self.get_image(image_idx)
-            self.image_cache[image_idx] = image
+        # if image_idx in self.image_cache:
+            # image = self.image_cache[image_idx]
+        # else:
+            # image = self.get_image(image_idx)
+            # self.image_cache[image_idx] = image
 
         data = {"image_idx": image_idx}
-        data["image"] = image
+        # data["image"] = image
         for _, data_func_dict in self._dataparser_outputs.additional_inputs.items():
             assert "func" in data_func_dict, "Missing function to process data: specify `func` in `additional_inputs`"
             func = data_func_dict["func"]
@@ -115,6 +118,16 @@ class InputDataset(Dataset):
             data["mask"] = get_image_mask_tensor_from_path(filepath=mask_filepath, scale_factor=self.scale_factor)
         metadata = self.get_metadata(data)
         data.update(metadata)
+        if "sparse_sdf_samples" in data:
+            image_idx = image_idx % 3
+        if image_idx in self.image_cache:
+            image = self.image_cache[image_idx]
+        else:
+            image = self.get_image(image_idx)
+            self.image_cache[image_idx] = image
+
+        # data = {"image_idx": image_idx}
+        data["image"] = image
         return data
 
     # pylint: disable=no-self-use
@@ -128,6 +141,9 @@ class InputDataset(Dataset):
         return {}
 
     def __getitem__(self, image_idx: int) -> Dict:
+        # image_idx = 0
+        # pause()
+        # print(image_idx)
         data = self.get_data(image_idx)
         return data
 

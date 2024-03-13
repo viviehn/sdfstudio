@@ -172,6 +172,7 @@ def get_sdf_samples(image_idx: int, sdf_samples):
         # pause()
     # v1
     sparse_sdf_samples = sdf_samples[image_idx]
+    # sparse_sdf_samples[..., 3] = -sparse_sdf_samples[..., 3]
     # v2
     # choices = np.random.choice(sdf_samples.shape[0], size=10, replace=False)
     # sparse_sdf_samples = sdf_samples[choices].reshape(-1, 4)
@@ -433,39 +434,31 @@ class SDFStudio(DataParser):
                 "func": get_sparse_sfm_points,
                 "kwargs": {"sfm_points": filter_list(sfm_points, indices)},
             }
+        self.n_images = 0
         if self.config.include_sdf_samples:
-            w2gt = np.array(meta["worldtogt"])
-            sdf_fname = self.config.data / "rand_surf-4m.ply"
-            sdf_onsurface = trimesh.load(sdf_fname, preprocess=False).vertices
-            if True:
-                sdf_fname = self.config.data / "near_surf-400k.sdf"
-                sdf_offsurface = read_sdf(sdf_fname)
-                sdf_offsurface = sdf_offsurface[np.abs(sdf_offsurface[:, 3])<1]
-                n_onsurface = sdf_onsurface.shape[0]
-                n_offsurface = sdf_offsurface.shape[0]
-                sdf_samples = np.zeros((n_onsurface + n_offsurface, 4))
-                sdf_samples[:n_onsurface, :3] = sdf_onsurface
-                sdf_samples[n_onsurface:] = sdf_offsurface
+            self.meta = meta
+            self.w2gt = np.array(meta["worldtogt"])
+            # sdf_fname = self.config.data / "rand_surf-4m.ply"
+            # scene = "785e7504b9"
+            self.sdf_path = f"{str(self.config.data)}/../../scans/rand_surf-" #-40m-v9"
+            n_images = len(self.meta["frames"])
+            n_images = 305
+            self.n_images = n_images
+            if split == "train":
+                self.choices = {}
+                choices = np.arange(int(8e7))
+                indices = indices[:self.n_images]
             else:
-                n_onsurface = sdf_onsurface.shape[0]
-                n_offsurface = 0
-                sdf_samples = np.zeros((n_onsurface + n_offsurface, 4))
-                sdf_samples[:n_onsurface, :3] = sdf_onsurface
-            
-            sdf_samples[:, :3] = (sdf_samples[:, :3] - w2gt[:3, 3][None]) / np.diag(w2gt)[:3][None]
-            sdf_samples[:, 3] = sdf_samples[:, 3] / w2gt[0, 0]
-            sdf_samples = torch.from_numpy(sdf_samples).float()
-            n_sdf_samples = sdf_samples.shape[0]
-            choices = np.arange(n_sdf_samples)
-            np.random.shuffle(choices)
-            n_images = len(meta["frames"])
-            npoints_per_image = n_sdf_samples // n_images
-            k = 10000
-            if npoints_per_image > k:
-                npoints_per_image = k
-            sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, -1, 4)
+                choices = np.arange(280000)
+            np.random.RandomState(0).shuffle(choices)
 
-            # choices = np.random.RandomState(image_idx).choice(sdf_samples.shape[0], size=10000, replace=False)
+            self.choices[split] = choices
+            # if split == "train":
+            # else:
+                # self.sdf_path = f"{str(self.config.data)}/../../scans/rand_surf-140k-v9"
+            # self.num_samples = num_samples
+            # self.size = size
+            sdf_samples = self.load_sdf_samples(0, split)
 
             additional_inputs_dict = {
                     "sdf_samples": {
@@ -473,6 +466,9 @@ class SDFStudio(DataParser):
                     "kwargs": {"sdf_samples": sdf_samples},
                 }
             }
+        else:
+            self.bbox_min = (-1.0, -1.0, -1.0)
+            self.bbox_max = (1.0, 1.0, 1.0)
         # load pair information
         pairs_path = self.config.data / "pairs.txt"
         if pairs_path.exists() and split == "train" and self.config.load_pairs:
@@ -509,5 +505,62 @@ class SDFStudio(DataParser):
             additional_inputs=additional_inputs_dict,
             depths=filter_list(depth_images, indices),
             normals=filter_list(normal_images, indices),
+            bbox_min=self.bbox_min,
+            bbox_max=self.bbox_max,
+            # sdf_samples_len= self.n_images
         )
         return dataparser_outputs
+
+
+    def load_sdf_samples(self, part, split):
+        postfix = "40m" if split=="train" else "140k"
+        # TODO eval load smaller size
+        path = self.sdf_path + postfix + "-v9"
+        path = f"{path}-{part}.ply"
+        sdf_fname = path.replace("rand_surf", "near_surf")[:-3].replace("-cur1", "").replace("v9-", "exp5-") + "sdf"
+        print(f"loading {path}, {sdf_fname}")
+        # mesh = trimesh.load(path, process=False)
+        # sdf_onsurface = mesh.vertices.astype(np.float32)
+        k = int(4e7)
+        # sdf_onsurface = np.zeros((k,3))
+        # sdf_offsurface = np.zeros((k, 4))
+        sdf_onsurface = trimesh.load(path, process=False).vertices.astype(np.float32)
+        sdf_offsurface = read_sdf(sdf_fname)
+        n_onsurface = sdf_onsurface.shape[0]
+        n_offsurface = sdf_offsurface.shape[0]
+        sdf_samples = np.zeros((n_onsurface + n_offsurface, 4)).astype(np.float32)
+        sdf_samples[:n_onsurface, :3] = sdf_onsurface
+        sdf_samples[n_onsurface:] = sdf_offsurface
+        # bbox_min = sdf_onsurface.min(0)
+        # bbox_max = sdf_onsurface.max(0)
+
+        # choices = np.arange(self.n_sdf_samples)
+        # if self.size == 1:
+            # choices = choices[::100][:self.num_samples]
+        # else:
+            # np.random.shuffle(choices)
+        # self.sdf_samples = self.sdf_samples[choices]
+
+        w2gt = self.w2gt 
+        sdf_samples[:, :3] = (sdf_samples[:, :3] - w2gt[:3, 3][None]) / np.diag(w2gt)[:3][None]
+        sdf_samples[:, 3] = sdf_samples[:, 3] / w2gt[0, 0]
+        n_sdf_samples = sdf_samples.shape[0]
+        choices = self.choices[split]
+        if split == "train":
+            n_images = self.n_images
+            npoints_per_image = 2**18 #n_sdf_samples // n_images
+            if part == 0:
+                bbox_min = sdf_samples[:n_onsurface, :3].min(0)
+                bbox_max = sdf_samples[:n_onsurface, :3].max(0)
+                self.bbox_min = tuple([i for i in bbox_min])
+                self.bbox_max = tuple([i for i in bbox_max])
+        else:
+            n_images = 800
+            npoints_per_image = 200
+        # choices = self.choices
+        sdf_samples = torch.from_numpy(sdf_samples).float()
+        # k = 10000
+        # if npoints_per_image > k:
+            # npoints_per_image = k
+        sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, -1, 4)
+        return sdf_samples

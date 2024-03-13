@@ -33,6 +33,7 @@ from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.data.datasets.base_dataset import InputDataset
 from nerfstudio.data.utils.nerfstudio_collate import nerfstudio_collate
 from nerfstudio.utils.misc import get_dict_to_torch
+from pdb import set_trace as pause
 
 CONSOLE = Console(width=120)
 
@@ -98,7 +99,7 @@ class CacheDataloader(DataLoader):
         batch_list = []
         results = []
 
-        num_threads = int(self.num_workers) * 4
+        num_threads = int(self.num_workers)  # * 4
         num_threads = min(num_threads, multiprocessing.cpu_count() - 1)
         num_threads = max(num_threads, 1)
 
@@ -119,6 +120,7 @@ class CacheDataloader(DataLoader):
         batch_list = self._get_batch_list()
         collated_batch = self.collate_fn(batch_list)
         collated_batch = get_dict_to_torch(collated_batch, device=self.device, exclude=["image"])
+        # pause()
         return collated_batch
 
     def __iter__(self):

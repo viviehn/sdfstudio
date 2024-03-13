@@ -339,11 +339,11 @@ class SDFField(Field):
             if self.config.weight_norm and not self.config.vanilla_ngp:
                 lin = nn.utils.weight_norm(lin)
                 # print("=======", lin.weight.shape)
-            if l == self.num_layers - 2:
+            if l == self.num_layers - 2 and self.config.vanilla_ngp:
                 lin_sdf = nn.Linear(dims[l], 1, bias=not self.config.vanilla_ngp)
                 lin_sdf.weight.data = lin.weight[:1] * 1.0
-                if not self.config.vanilla_ngp:
-                    lin_sdf.bias.data = lin.bias * 1.0
+                # if not self.config.vanilla_ngp:
+                # lin_sdf.bias.data = lin.bias * 1.0
                 setattr(self, "glin" + str(l), lin_sdf)
                 setattr(self, "glin" + str(l+1), lin)
             else:
@@ -421,8 +421,10 @@ class SDFField(Field):
         # inputs *= 2
         if self.use_grid_feature:
             #TODO normalize inputs depending on the whether we model the background or not
+            # pause()
             if self.config.vanilla_ngp:
-                positions = inputs / 2
+                positions = inputs * 1.0
+                # positions = inputs / 2
             else:
                 positions = (inputs + 2.0) / 4.0
             # positions = (inputs + 1.0) / 2.0
@@ -450,7 +452,7 @@ class SDFField(Field):
             if l in self.skip_in:
                 x = torch.cat([x, inputs], 1) / np.sqrt(2)
 
-            if l == self.num_layers - 2:
+            if self.config.vanilla_ngp and l == self.num_layers - 2:
                 lin_geofeat = getattr(self, "glin" + str(l+1))
                 x_geofeat = lin_geofeat(x)
             x = lin(x)
@@ -460,8 +462,9 @@ class SDFField(Field):
                     x = self.relu(x)
                 else:
                     x = self.softplus(x)
+        if self.config.vanilla_ngp:
+            x = torch.cat((x, x_geofeat), -1)
         # pause()
-        x = torch.cat((x, x_geofeat), -1)
         return x
 
     def get_sdf(self, ray_samples: RaySamples):
@@ -668,6 +671,50 @@ class SDFField(Field):
 
     def get_outputs(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False):
         """compute output of ray samples"""
+        # pause()
+        if isinstance(ray_samples, torch.Tensor):
+            inputs = ray_samples[:, :3]
+            # compute gradient in constracted space
+            inputs.requires_grad_(True)
+            with torch.enable_grad():
+                h = self.forward_geonetwork(inputs)
+                sdf, geo_feature = torch.split(h, [1, self.config.geo_feat_dim], dim=-1)
+            outputs = {
+                    FieldHeadNames.SDF: sdf,
+                }
+
+            # if self.config.curvature_loss_multi== 0.0:
+            # if True: #self.config.eikonal_loss_mult == 0.0 and 
+                # return outputs
+            if self.config.use_numerical_gradients:
+                gradients, sampled_sdf = self.gradient(
+                    inputs,
+                    skip_spatial_distortion=True,
+                    return_sdf=True,
+                )
+                # pause()
+                # sampled_sdf = sampled_sdf.view(-1, *ray_samples.frustums.directions.shape[:-1]).permute(1, 2, 0).contiguous()
+                sampled_sdf = sampled_sdf.permute(1, 0).contiguous()
+            else:
+                d_output = torch.ones_like(sdf, requires_grad=False, device=sdf.device)
+                gradients = torch.autograd.grad(
+                    outputs=sdf,
+                    inputs=inputs,
+                    grad_outputs=d_output,
+                    create_graph=True,
+                    retain_graph=True,
+                    only_inputs=True,
+                )[0]
+                sampled_sdf = None
+            # pause()
+            outputs.update({
+                    # FieldHeadNames.SDF: sdf,
+                    # FieldHeadNames.NORMAL: normals,
+                    FieldHeadNames.GRADIENT: gradients,
+                    # "points_norm": points_norm,
+                    "sampled_sdf": sampled_sdf,
+                })
+            return outputs
         if ray_samples.camera_indices is None:
             raise AttributeError("Camera indices are not provided.")
 
