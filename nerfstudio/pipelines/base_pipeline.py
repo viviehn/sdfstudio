@@ -121,7 +121,6 @@ class Pipeline(nn.Module):
         if self.world_size > 1 and step:
             assert self.datamanager.train_sampler is not None
             self.datamanager.train_sampler.set_epoch(step)
-        # pause()
         if self.datamanager.config.dataparser.include_sdf_samples:
             ray_bundle = None
             batch = self.datamanager
@@ -439,6 +438,8 @@ class VanillaPipeline(Pipeline):
         state = {key.replace("module.", ""): value for key, value in loaded_state.items()}
         if state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
             state.pop("_model.field.embedding_appearance.embedding.weight")
+            state.pop("_model.field.encoding.embeddings")
+            state.pop("_model.field.encoding.offsets")
         if self.test_mode == "inference":
             state.pop("datamanager.train_camera_optimizer.pose_adjustment", None)
             state.pop("datamanager.train_ray_generator.image_coords", None)
