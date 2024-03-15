@@ -1,0 +1,28 @@
+CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=4 ns-train neus-facto \
+    --trainer.max_num_iterations 200000 --trainer.steps_per_save 3000\
+    --trainer.load-dir outputs/ngp-best-nema-500m-f4-l1 \
+    --pipeline.model.sdf-field.use-grid-feature True \
+    --pipeline.model.sdf-field.num-layers 2     \
+    --pipeline.model.sdf-field.hidden-dim 64     \
+    --pipeline.model.sdf-field.geo-feat-dim 64     \
+    --pipeline.model.sdf-field.num-layers-color 2     \
+    --pipeline.model.sdf-field.log2-hashmap-size 22\
+    --pipeline.model.sdf-field.hash-features-per-level 4\
+    --pipeline.model.sdf-field.base-res 16\
+    --pipeline.model.sdf-field.max-res 2048\
+    --pipeline.model.enable-progressive-hash-encoding False\
+    --pipeline.model.sdf-field.use-appearance-embedding True\
+    --pipeline.model.sdf-field.use-position-encoding True\
+    --pipeline.model.sdf-field.vanilla-ngp True\
+    --pipeline.model.sdf-field.geometric-init False\
+    --pipeline.model.sdf-field.bias 0.8\
+    --pipeline.model.sdf-field.inside-outside True --pipeline.model.mono-depth-loss-mult 0.1\
+    --pipeline.model.mono-normal-loss-mult 0.05 \
+    --pipeline.datamanager.train_num_rays_per_batch 1536\
+    --pipeline.datamanager.eval_num_rays_per_batch 128 \
+    --pipeline.datamanager.train_num_images_to_sample_from 1\
+    --pipeline.datamanager.train_num_times_to_repeat_images 0 \
+    --pipeline.datamanager.eval_num_images_to_sample_from 1 \
+    --pipeline.model.background-model none --vis tensorboard \
+    --experiment-name mononeus sdfstudio-data \
+    --data /data/fwei/scannetpp/data/785e7504b9/dslr/sdfstudio --include_mono_prior True
