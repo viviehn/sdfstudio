@@ -323,11 +323,11 @@ class SurfaceModel(Model):
 
             outputs.update(samples_and_field_outputs)
 
-        # if self.config.loss_coefficients["rgb_loss_coarse"] == 0 and self.training:
         # TODO
-        if isinstance(ray_bundle, torch.Tensor) and self.training:
-            outputs.update({"rgb": torch.zeros_like(ray_bundle[0, 0])})
-            return outputs
+            if isinstance(ray_bundle, torch.Tensor):
+                if FieldHeadNames.RGB in field_outputs.keys():
+                    outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
+                return outputs
 
         ray_samples = samples_and_field_outputs["ray_samples"]
         weights = samples_and_field_outputs["weights"]
@@ -424,6 +424,7 @@ class SurfaceModel(Model):
         loss_dict = {}
         # pause()
         if "sparse_sdf_samples" not in batch.keys() or not self.training:
+        # if "rgb" in outputs or not self.training:
             image = batch["image"].to(self.device)
             loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
         if self.training:
@@ -434,11 +435,17 @@ class SurfaceModel(Model):
                 # sparse_sdf_samples_sdf = self.field.forward_geonetwork(sparse_sdf_samples[:, :3])[:, 0].contiguous()
                 sparse_sdf_samples_sdf = outputs['field_outputs'][FieldHeadNames.SDF]
                 # pause()
-                # loss_dict["sparse_sdf_samples_loss"] = mape_loss(sparse_sdf_samples_sdf, sparse_sdf_samples[:, 3:]) * self.config.sparse_points_sdf_loss_mult
+                # loss_dict["sparse_sdf_samples_loss"] =
+                # mape_loss(sparse_sdf_samples_sdf, sparse_sdf_samples[:, 3:4]) * self.config.sparse_points_sdf_loss_mult
                 loss_dict["sparse_sdf_samples_loss"] = (
                         torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3].reshape(sparse_sdf_samples_sdf.shape)))\
                                 * self.config.sparse_points_sdf_loss_mult
                 )
+                use_point_color = sparse_sdf_samples.shape[1] > 4
+                if use_point_color:
+                    mask_onsurface = sparse_sdf_samples[:, 3] == 0
+                    color_gt = sparse_sdf_samples[:, 4:][mask_onsurface]
+                    loss_dict["point_rgb_loss"] = self.rgb_loss(outputs["rgb"], color_gt)
             # eikonal loss
             if "eik_grad" in outputs:
                 grad_theta = outputs["eik_grad"]

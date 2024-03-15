@@ -706,13 +706,29 @@ class SDFField(Field):
                     only_inputs=True,
                 )[0]
                 sampled_sdf = None
-            # pause()
+            if ray_samples.shape[1] == 4:
+                outputs.update({
+                        # FieldHeadNames.SDF: sdf,
+                        # FieldHeadNames.NORMAL: normals,
+                        FieldHeadNames.GRADIENT: gradients,
+                        # "points_norm": points_norm,
+                        "sampled_sdf": sampled_sdf,
+                    })
+                return outputs
+            mask = ray_samples[:, 3] == 0
+            directions = F.normalize(gradients[mask].detach(), p=2, dim=-1)
+            camera_indices = torch.zeros_like(directions[:, 0]).int()
+            rgb = self.get_colors(inputs[mask], directions, gradients[mask], geo_feature[mask], camera_indices)
+
+            density = self.laplace_density(sdf)
             outputs.update({
                     # FieldHeadNames.SDF: sdf,
                     # FieldHeadNames.NORMAL: normals,
                     FieldHeadNames.GRADIENT: gradients,
                     # "points_norm": points_norm,
                     "sampled_sdf": sampled_sdf,
+                    FieldHeadNames.RGB: rgb,
+                    FieldHeadNames.DENSITY: density,
                 })
             return outputs
         if ray_samples.camera_indices is None:

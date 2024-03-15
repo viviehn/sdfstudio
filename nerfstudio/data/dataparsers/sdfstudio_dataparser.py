@@ -224,6 +224,8 @@ class SDFStudioDataParserConfig(DataParserConfig):
     """automatically orient the scene such that the up direction is the same as the viewer's up direction"""
     load_dtu_highres: bool = False
     """load high resolution images from DTU dataset, should only be used for the preprocessed DTU dataset"""
+    use_point_color: bool = False
+    """use point color when training with sdf samples"""
 
 
 def filter_list(list_to_filter, indices):
@@ -513,18 +515,23 @@ class SDFStudio(DataParser):
 
 
     def load_sdf_samples(self, part, split):
-        postfix = "40m" if split=="train" else "140k"
+        pnum = "40m" if split=="train" else "140k"
+        postfix = "-v9"
+        if self.config.use_point_color:
+            postfix += "-rgb"
         # TODO eval load smaller size
-        path = self.sdf_path + postfix + "-v9"
+        path = self.sdf_path + pnum + postfix  #  + "-v9"
         path = f"{path}-{part}.ply"
-        sdf_fname = path.replace("rand_surf", "near_surf")[:-3].replace("-cur1", "").replace("v9-", "exp5-") + "sdf"
+        sdf_fname = path.replace("rand_surf", "near_surf")[:-3].replace("-cur1", "").replace(postfix, "-exp5") + "sdf"
         print(f"loading {path}, {sdf_fname}")
         # mesh = trimesh.load(path, process=False)
         # sdf_onsurface = mesh.vertices.astype(np.float32)
         k = int(4e7)
         # sdf_onsurface = np.zeros((k,3))
         # sdf_offsurface = np.zeros((k, 4))
-        sdf_onsurface = trimesh.load(path, process=False).vertices.astype(np.float32)
+        mesh = trimesh.load(path, process=False)
+        sdf_onsurface = mesh.vertices.astype(np.float32)
+
         sdf_offsurface = read_sdf(sdf_fname)
         n_onsurface = sdf_onsurface.shape[0]
         n_offsurface = sdf_offsurface.shape[0]
@@ -558,9 +565,11 @@ class SDFStudio(DataParser):
             n_images = 800
             npoints_per_image = 200
         # choices = self.choices
+        if self.config.use_point_color:
+            colors_onsurface = (mesh.colors[:, :3] / 255.0).astype(np.float32)
+            colors = np.zeros_like(sdf_samples[:, :3])
+            colors[:n_onsurface] = colors_onsurface
+            sdf_samples = np.concatenate((sdf_samples, colors), 1)
         sdf_samples = torch.from_numpy(sdf_samples).float()
-        # k = 10000
-        # if npoints_per_image > k:
-            # npoints_per_image = k
-        sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, -1, 4)
+        sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, npoints_per_image, -1)
         return sdf_samples

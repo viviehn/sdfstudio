@@ -24,6 +24,8 @@ def get_surface_sliding(
     output_path: Path = Path("test.ply"),
     simplify_mesh=True,
     w2gt=np.eye(4),
+    use_point_color=False,
+    color=None,
 ):
     assert resolution % 512 == 0
     if coarse_mask is not None:
@@ -145,15 +147,30 @@ def get_surface_sliding(
                     # print(np.array([x_min, y_min, z_min]))
                     # print(verts.min(), verts.max())
                     verts = verts + np.array([x_min, y_min, z_min])
+                    def evaluate_color(points):
+                        z = []
+                        for _, pnts in enumerate(torch.split(points, 100000, dim=0)):
+                            z.append(torch.clip(color(pnts), 0, 1))
+                        z = torch.cat(z, axis=0)
+                        return z
+                    if use_point_color:
+                        inputs = np.zeros((verts.shape[0], 1))
+                        inputs = np.concatenate([verts, inputs], 1)
+                        inputs = torch.from_numpy(inputs).float().cuda()
+                        outputs = evaluate_color(inputs)
+                        color = outputs.cpu().numpy()
+                    else:
+                        color = None
                     # print(verts.min(), verts.max())
                     verts = verts * np.diag(w2gt)[:3][None] + w2gt[:3, 3][None] 
+                    # pause()
 
-                    meshcrop = trimesh.Trimesh(verts, faces, normals)
+                    meshcrop = trimesh.Trimesh(verts, faces, normals, vertex_colors=color)
                     # meshcrop.export(f"{i}_{j}_{k}.ply")
                     meshes.append(meshcrop)
 
     combined = trimesh.util.concatenate(meshes)
-
+    # pause()
     if return_mesh:
         return combined
     else:

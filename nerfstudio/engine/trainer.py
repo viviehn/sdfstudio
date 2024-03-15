@@ -149,9 +149,9 @@ class Trainer:
             n_images = self.pipeline.datamanager.dataparser.n_images 
             for step in range(self._start_step, self._start_step + num_iterations):
                 with TimeWriter(writer, EventName.ITER_TRAIN_TIME, step=step) as train_t:
-                    if n_images > 0 and step > 0 and step % n_images ==0:
-                        part = step // n_images
-                        self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']["kwargs"]["sdf_samples"]=self.pipeline.datamanager.dataparser.load_sdf_samples(part, "train")
+                    # if n_images > 0 and step > 0 and step % n_images ==0:
+                        # part = step // n_images
+                        # self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']["kwargs"]["sdf_samples"]=self.pipeline.datamanager.dataparser.load_sdf_samples(part, "train")
                     self.pipeline.train()
 
                     # training callbacks before the training iteration
