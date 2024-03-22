@@ -669,9 +669,8 @@ class SDFField(Field):
 
         return rgb
 
-    def get_outputs(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False):
+    def get_outputs(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False, sdf_only=False, need_rgb=False):
         """compute output of ray samples"""
-        # pause()
         if isinstance(ray_samples, torch.Tensor):
             inputs = ray_samples[:, :3]
             # compute gradient in constracted space
@@ -685,14 +684,15 @@ class SDFField(Field):
 
             # if self.config.curvature_loss_multi== 0.0:
             # if True: #self.config.eikonal_loss_mult == 0.0 and 
-                # return outputs
+            if ray_samples.shape[1] == 4:
+                if sdf_only:
+                    return outputs
             if self.config.use_numerical_gradients:
                 gradients, sampled_sdf = self.gradient(
                     inputs,
                     skip_spatial_distortion=True,
                     return_sdf=True,
                 )
-                # pause()
                 # sampled_sdf = sampled_sdf.view(-1, *ray_samples.frustums.directions.shape[:-1]).permute(1, 2, 0).contiguous()
                 sampled_sdf = sampled_sdf.permute(1, 0).contiguous()
             else:
@@ -706,7 +706,7 @@ class SDFField(Field):
                     only_inputs=True,
                 )[0]
                 sampled_sdf = None
-            if ray_samples.shape[1] == 4:
+            if ray_samples.shape[1] == 4 and need_rgb == False:
                 outputs.update({
                         # FieldHeadNames.SDF: sdf,
                         # FieldHeadNames.NORMAL: normals,
@@ -715,18 +715,26 @@ class SDFField(Field):
                         "sampled_sdf": sampled_sdf,
                     })
                 return outputs
-            mask = ray_samples[:, 3] == 0
-            directions = F.normalize(gradients[mask].detach(), p=2, dim=-1)
-            camera_indices = torch.zeros_like(directions[:, 0]).int()
-            rgb = self.get_colors(inputs[mask], directions, gradients[mask], geo_feature[mask], camera_indices)
+            if ray_samples.shape[1] > 4:
+                mask = (ray_samples[:, 3] == 0) & (ray_samples[:, 3:].sum(1) != 0)
+                directions = ray_samples[:, 7:10][mask]
+                noise = (torch.rand((mask.sum(), 3)).to(directions.device) - 0.5) * 0.1
+                directions = F.normalize(directions + noise, p=2, dim=-1)
+                camera_indices = torch.zeros_like(directions[:, 0]).int()
+                rgb = self.get_colors(inputs[mask], directions, gradients[mask], geo_feature[mask], camera_indices)
+            else:
+                directions = gradients
+                directions = F.normalize(directions, p=2, dim=-1)
+                camera_indices = torch.zeros_like(directions[:, 0]).int()
+                rgb = self.get_colors(inputs, directions, gradients, geo_feature, camera_indices)
 
             density = self.laplace_density(sdf)
             outputs.update({
                     # FieldHeadNames.SDF: sdf,
                     # FieldHeadNames.NORMAL: normals,
-                    FieldHeadNames.GRADIENT: gradients,
+                    # FieldHeadNames.GRADIENT: gradients,
                     # "points_norm": points_norm,
-                    "sampled_sdf": sampled_sdf,
+                    # "sampled_sdf": sampled_sdf,
                     FieldHeadNames.RGB: rgb,
                     FieldHeadNames.DENSITY: density,
                 })
@@ -806,11 +814,11 @@ class SDFField(Field):
 
         return outputs
 
-    def forward(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False):
+    def forward(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False, sdf_only=False):
         """Evaluates the field at points along the ray.
 
         Args:
             ray_samples: Samples to evaluate field on.
         """
-        field_outputs = self.get_outputs(ray_samples, return_alphas=return_alphas, return_occupancy=return_occupancy)
+        field_outputs = self.get_outputs(ray_samples, return_alphas=return_alphas, return_occupancy=return_occupancy, sdf_only=sdf_only)
         return field_outputs

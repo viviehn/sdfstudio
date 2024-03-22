@@ -443,9 +443,9 @@ class SurfaceModel(Model):
                 )
                 use_point_color = sparse_sdf_samples.shape[1] > 4
                 if use_point_color:
-                    mask_onsurface = sparse_sdf_samples[:, 3] == 0
-                    color_gt = sparse_sdf_samples[:, 4:][mask_onsurface]
-                    loss_dict["point_rgb_loss"] = self.rgb_loss(outputs["rgb"], color_gt)
+                    mask_onsurface = (sparse_sdf_samples[:, 3] == 0) & (sparse_sdf_samples[:, 3:].sum(1) != 0)
+                    color_gt = sparse_sdf_samples[:, 4:7][mask_onsurface]
+                    loss_dict["point_rgb_loss"] = 0.01 * self.rgb_loss(outputs["rgb"], color_gt)
             # eikonal loss
             if "eik_grad" in outputs:
                 grad_theta = outputs["eik_grad"]

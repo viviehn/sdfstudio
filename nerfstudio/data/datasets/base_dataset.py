@@ -169,6 +169,7 @@ class GeneralizedDataset(InputDataset):
         for filename in track(
             self._dataparser_outputs.image_filenames, transient=True, description="Checking image sizes"
         ):
+            # filename = str(filename)[:-14] + "000000_rgb.png"
             image = Image.open(filename)
             if h is None:
                 h = image.height

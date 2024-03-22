@@ -38,11 +38,12 @@ from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.utils.images import BasicImages
 from nerfstudio.utils.io import load_from_json
 from pdb import set_trace as pause
+from time import time
 
 CONSOLE = Console()
 
 import struct
-def read_sdf(filename):
+def read_sdf_slow(filename):
     # Define the format string for unpacking the floats
     # '<' for little-endian, '4f' for four floats
     format_str = '<4f' 
@@ -64,6 +65,32 @@ def read_sdf(filename):
             data.append(struct.unpack(format_str, bytes))
 
     return np.array(data)
+
+def read_sdf(filename, normal=False):
+    """
+    Read floats from a binary file into an Nx4 numpy array efficiently.
+
+    Args:
+    - filename: String, the path to the binary file to read.
+
+    Returns:
+    - Nx4 numpy array of the read floats.
+    """
+    # Open the file in binary read mode
+    with open(filename, 'rb') as file:
+        # Read the entire file content into a bytes object
+        data = file.read()
+
+    # Convert the bytes data into a 1D numpy array of float32
+    # Assuming the file contains only float32 values
+    array = np.frombuffer(data, dtype=np.float32)
+
+    # Reshape the array to Nx4 since we know each point consists of 4 floats
+    # The '-1' in reshape automatically calculates the size of the first dimension
+    array = array.reshape(-1, 7 if normal else 4)
+
+    return array
+
 
 def get_src_from_pairs(
     ref_idx, all_imgs, pairs_srcs, neighbors_num=None, neighbors_shuffle=False
@@ -447,14 +474,14 @@ class SDFStudio(DataParser):
             n_images = 305
             self.n_images = n_images
             if split == "train":
-                self.choices = {}
-                choices = np.arange(int(8e7))
+                # self.choices = {}
+                # choices = np.arange(int(8e7))
                 indices = indices[:self.n_images]
-            else:
-                choices = np.arange(280000)
-            np.random.RandomState(0).shuffle(choices)
+            # else:
+                # choices = np.arange(280000)
+            # np.random.RandomState(0).shuffle(choices)
 
-            self.choices[split] = choices
+            # self.choices[split] = choices
             # if split == "train":
             # else:
                 # self.sdf_path = f"{str(self.config.data)}/../../scans/rand_surf-140k-v9"
@@ -524,52 +551,63 @@ class SDFStudio(DataParser):
         path = f"{path}-{part}.ply"
         sdf_fname = path.replace("rand_surf", "near_surf")[:-3].replace("-cur1", "").replace(postfix, "-exp5") + "sdf"
         print(f"loading {path}, {sdf_fname}")
-        # mesh = trimesh.load(path, process=False)
         # sdf_onsurface = mesh.vertices.astype(np.float32)
         k = int(4e7)
         # sdf_onsurface = np.zeros((k,3))
         # sdf_offsurface = np.zeros((k, 4))
         mesh = trimesh.load(path, process=False)
-        sdf_onsurface = mesh.vertices.astype(np.float32)
-
+        sdf_onsurface = torch.from_numpy(mesh.vertices).float()
         sdf_offsurface = read_sdf(sdf_fname)
         n_onsurface = sdf_onsurface.shape[0]
         n_offsurface = sdf_offsurface.shape[0]
-        sdf_samples = np.zeros((n_onsurface + n_offsurface, 4)).astype(np.float32)
+        # sdf_samples = np.zeros((n_onsurface + n_offsurface, 4), dtype=np.float32)
+        dim = 4 + self.config.use_point_color * 6
+        sdf_samples = torch.zeros((n_onsurface + n_offsurface, dim)).float()
         sdf_samples[:n_onsurface, :3] = sdf_onsurface
-        sdf_samples[n_onsurface:] = sdf_offsurface
-        # bbox_min = sdf_onsurface.min(0)
-        # bbox_max = sdf_onsurface.max(0)
+        sdf_samples[n_onsurface:, :4] = torch.from_numpy(sdf_offsurface * 1.0).float()
 
-        # choices = np.arange(self.n_sdf_samples)
-        # if self.size == 1:
-            # choices = choices[::100][:self.num_samples]
-        # else:
-            # np.random.shuffle(choices)
-        # self.sdf_samples = self.sdf_samples[choices]
 
-        w2gt = self.w2gt 
-        sdf_samples[:, :3] = (sdf_samples[:, :3] - w2gt[:3, 3][None]) / np.diag(w2gt)[:3][None]
-        sdf_samples[:, 3] = sdf_samples[:, 3] / w2gt[0, 0]
+        # w2gt = self.w2gt 
+        # sdf_samples[:, :3] = (sdf_samples[:, :3] - w2gt[:3, 3][None]) / np.diag(w2gt)[:3][None]
+        # sdf_samples[:, 3] = sdf_samples[:, 3] / w2gt[0, 0]
+        w2gt = torch.from_numpy(self.w2gt).float()
+        sdf_samples[:, :3] = (sdf_samples[:, :3] - w2gt[:3, 3][None]) #/ np.diag(w2gt)[:3][None]
+        sdf_samples[:, :4] = sdf_samples[:, :4] / w2gt[0, 0]
         n_sdf_samples = sdf_samples.shape[0]
-        choices = self.choices[split]
+        # choices = self.choices[split]
         if split == "train":
             n_images = self.n_images
             npoints_per_image = 2**18 #n_sdf_samples // n_images
             if part == 0:
-                bbox_min = sdf_samples[:n_onsurface, :3].min(0)
-                bbox_max = sdf_samples[:n_onsurface, :3].max(0)
-                self.bbox_min = tuple([i for i in bbox_min])
-                self.bbox_max = tuple([i for i in bbox_max])
+                # bbox_min = sdf_samples[:n_onsurface, :3].min(0)
+                # bbox_max = sdf_samples[:n_onsurface, :3].max(0)
+                bbox_min = sdf_samples[:n_onsurface, :3].min(0)[0]
+                bbox_max = sdf_samples[:n_onsurface, :3].max(0)[0]
+                self.bbox_min = tuple([i.item() for i in bbox_min])
+                self.bbox_max = tuple([i.item() for i in bbox_max])
         else:
-            n_images = 800
-            npoints_per_image = 200
+            n_images = 2000
+            npoints_per_image = 60
         # choices = self.choices
         if self.config.use_point_color:
-            colors_onsurface = (mesh.colors[:, :3] / 255.0).astype(np.float32)
-            colors = np.zeros_like(sdf_samples[:, :3])
-            colors[:n_onsurface] = colors_onsurface
-            sdf_samples = np.concatenate((sdf_samples, colors), 1)
-        sdf_samples = torch.from_numpy(sdf_samples).float()
-        sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, npoints_per_image, -1)
+            # rgb
+            colors_onsurface = torch.from_numpy(mesh.colors[:, :3]).float() / 255.0
+            # colors = torch.zeros_like(sdf_samples[:, :3])
+            # colors[:n_onsurface] = colors_onsurface
+            sdf_samples[:n_onsurface, 4:7] = colors_onsurface
+            # normal
+            # data=mesh.metadata['_ply_raw']['vertex']['data']
+            # normals = torch.tensor([[idata[3], idata[4], idata[5]] for idata in data])
+            path_norm = path[:-3] + "npy"
+            if Path(path_norm).exists():
+                normals = np.load(path_norm)
+            else:
+                data=mesh.metadata['_ply_raw']['vertex']['data']
+                normals = np.array([[idata[3], idata[4], idata[5]] for idata in data], dtype=np.float32)
+                np.save(path_norm, normals)
+            sdf_samples[:n_onsurface, 7:10] = torch.tensor(normals)
+            # sdf_samples = torch.concatenate((sdf_samples, colors), 1)
+        # sdf_samples = torch.from_numpy(sdf_samples).float()
+        # sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, npoints_per_image, -1)
+        sdf_samples = sdf_samples[: npoints_per_image * n_images].reshape(npoints_per_image, n_images, -1).permute(1,0,2)
         return sdf_samples

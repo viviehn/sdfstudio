@@ -283,7 +283,8 @@ class NeuSFactoModel(NeuSModel):
     def sample_and_forward_field(self, ray_bundle: RayBundle):
         # pause()
         if isinstance(ray_bundle, torch.Tensor):
-            field_outputs = self.field(ray_bundle, return_alphas=False)
+            sdf_only = self.config.eikonal_loss_mult == 0 and self.config.curvature_loss_multi == 0
+            field_outputs = self.field(ray_bundle, return_alphas=False, sdf_only=sdf_only)
             return {"field_outputs": field_outputs}
 
         ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)

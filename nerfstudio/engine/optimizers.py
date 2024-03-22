@@ -52,7 +52,7 @@ class AdamOptimizerConfig(OptimizerConfig):
 
     _target: Type = torch.optim.Adam
     weight_decay: float = 0
-    # betas: tuple = (0.9, 0.99)
+    betas: tuple = (0.9, 0.99)
 
 @dataclass
 class AdamWOptimizerConfig(OptimizerConfig):

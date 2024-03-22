@@ -436,7 +436,7 @@ class VanillaPipeline(Pipeline):
             loaded_state: pre-trained model state dict
         """
         state = {key.replace("module.", ""): value for key, value in loaded_state.items()}
-        if state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
+        if self.test_mode == 'val' and state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
             state.pop("_model.field.embedding_appearance.embedding.weight")
             state.pop("_model.field.encoding.embeddings")
             state.pop("_model.field.encoding.offsets")

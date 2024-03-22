@@ -25,7 +25,7 @@ def get_surface_sliding(
     simplify_mesh=True,
     w2gt=np.eye(4),
     use_point_color=False,
-    color=None,
+    get_color=None,
 ):
     assert resolution % 512 == 0
     if coarse_mask is not None:
@@ -150,7 +150,7 @@ def get_surface_sliding(
                     def evaluate_color(points):
                         z = []
                         for _, pnts in enumerate(torch.split(points, 100000, dim=0)):
-                            z.append(torch.clip(color(pnts), 0, 1))
+                            z.append(torch.clip(get_color(pnts), 0, 1))
                         z = torch.cat(z, axis=0)
                         return z
                     if use_point_color:
