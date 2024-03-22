@@ -1,0 +1,25 @@
+torch-ngp
+positional encoding
+bias?
+activation
+geo_init
+hashgrid: multi-res
+
+sdfstudio
+fix mlp
+input normalization?
+xyz location
+coor system
+inside outside
+hash_mask
+same architecture, no preload
+load architecture trained for two scenes
+bbox
+lr optim & schedule
+
+geoinit but no bias
+ft:
+debug pipeline 120
+neg sdf
+todo interlevel 800
+normal & rgb supervision
