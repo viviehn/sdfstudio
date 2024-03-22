@@ -392,9 +392,10 @@ class SDFField(Field):
             torch.nn.init.kaiming_uniform_(lin.weight.data)
             torch.nn.init.zeros_(lin.bias.data)
 
-            if self.config.weight_norm:
-                lin = nn.utils.weight_norm(lin)
+            # if self.config.weight_norm:
+                # lin = nn.utils.weight_norm(lin)
             # print("=======", lin.weight.shape)
+            print("Not using weight norm of color network")
             setattr(self, "clin" + str(l), lin)
 
         self.softplus = nn.Softplus(beta=100)

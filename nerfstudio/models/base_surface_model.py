@@ -248,7 +248,17 @@ class SurfaceModel(Model):
 
     def get_param_groups(self) -> Dict[str, List[Parameter]]:
         param_groups = {}
-        param_groups["fields"] = list(self.field.parameters())
+        # param_groups["fields"] = list(self.field.parameters())
+        param_geo = []
+        param_col = []
+        for name, param in self.field.named_parameters():
+            if "glin" in name or "encoding.embeddings" == name:
+                param_geo.append(param)
+            else:
+                param_col.append(param)
+
+        param_groups["fields_geometry"] = param_geo
+        param_groups["fields_color"] = param_col
         if self.config.background_model != "none":
             param_groups["field_background"] = list(self.field_background.parameters())
         else:
@@ -445,7 +455,7 @@ class SurfaceModel(Model):
                 if use_point_color:
                     mask_onsurface = (sparse_sdf_samples[:, 3] == 0) & (sparse_sdf_samples[:, 3:].sum(1) != 0)
                     color_gt = sparse_sdf_samples[:, 4:7][mask_onsurface]
-                    loss_dict["point_rgb_loss"] = 0.01 * self.rgb_loss(outputs["rgb"], color_gt)
+                    loss_dict["point_rgb_loss"] = 0.1 * self.rgb_loss(outputs["rgb"], color_gt)
             # eikonal loss
             if "eik_grad" in outputs:
                 grad_theta = outputs["eik_grad"]

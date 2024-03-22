@@ -21,6 +21,7 @@ from nerfstudio.utils.marching_cubes import (
     get_surface_sliding_with_contraction,
 )
 from nerfstudio.utils.io import load_from_json
+from nerfstudio.field_components.field_heads import FieldHeadNames
 from pdb import set_trace as pause
 
 CONSOLE = Console(width=120)
@@ -61,6 +62,8 @@ class ExtractMesh:
     sub_sample_factor: int = 8
     """torch precision"""
     torch_precision: Literal["highest", "high"] = "high"
+    use_point_color: bool = False
+    """whether save mesh with color"""
 
     def main(self) -> None:
         """Main function."""
@@ -143,6 +146,8 @@ class ExtractMesh:
                 output_path=self.output_path,
                 simplify_mesh=self.simplify_mesh,
                 w2gt=w2gt,
+                use_point_color=self.use_point_color,
+                get_color=lambda x: pipeline.model.field.get_outputs(x, need_rgb=True)[FieldHeadNames.RGB],
             )
 
 

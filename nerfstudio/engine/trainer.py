@@ -310,6 +310,12 @@ class Trainer:
                     self.pipeline._model.field.glin2.bias.requires_grad = False
                 else:
                     self.pipeline._model.field.glin3.weight.requires_grad = False
+                self.pipeline._model.field.clin0.weight.requires_grad = False
+                self.pipeline._model.field.clin0.bias.requires_grad = False
+                self.pipeline._model.field.clin1.weight.requires_grad = False
+                self.pipeline._model.field.clin1.bias.requires_grad = False
+                self.pipeline._model.field.clin2.weight.requires_grad = False
+                self.pipeline._model.field.clin2.bias.requires_grad = False
             if True:
                 print("counting training step from 0, didn't load optimizers and schedulers")
                 return
