@@ -25,4 +25,6 @@ CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=4 ns-train neus-facto \
     --pipeline.datamanager.eval_num_images_to_sample_from 1 \
     --pipeline.model.background-model none --vis tensorboard \
     --experiment-name mononeus sdfstudio-data \
-    --data /data/fwei/scannetpp/data/785e7504b9/dslr/sdfstudio --include_mono_prior True
+    --data /home/fangyin/data/scannetpp/785e7504b9/dslr/sdfstudio\
+    --include_mono_prior True
+    #--data /data/fwei/scannetpp/data/785e7504b9/dslr/sdfstudio \
