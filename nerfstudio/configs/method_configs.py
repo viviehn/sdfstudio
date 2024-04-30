@@ -461,12 +461,17 @@ method_configs["neus-facto-angelo"] = Config(
         # },
         "fields_color": {
             "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
-            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[600_600, 800_000], gamma=0.1),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[600_000, 800_000], gamma=0.1),
             # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000, 800_000], gamma=0.1),
         },
         "fields_geometry": {
-            "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15, betas=(0.9, 0.99)),
-            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
+            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15, betas=(0.9, 0.99)),
+            "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[200_000], gamma=0.1),
+            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15, betas=(0.9, 0.99)),
+            # # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[120_000], gamma=0.1),
         },
         "field_background": {
             "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
@@ -515,7 +520,15 @@ method_configs["neus-facto"] = Config(
             "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
             "scheduler": MultiStepSchedulerConfig(max_steps=20000),
         },
-        "fields": {
+        # "fields": {
+            # "optimizer": AdamOptimizerConfig(lr=5e-4, eps=1e-15),
+            # "scheduler": NeuSSchedulerConfig(warm_up_end=500, learning_rate_alpha=0.05, max_steps=20000),
+        # },
+        "fields_color": {
+            "optimizer": AdamOptimizerConfig(lr=5e-4, eps=1e-15),
+            "scheduler": NeuSSchedulerConfig(warm_up_end=500, learning_rate_alpha=0.05, max_steps=20000),
+        },
+        "fields_geometry": {
             "optimizer": AdamOptimizerConfig(lr=5e-4, eps=1e-15),
             "scheduler": NeuSSchedulerConfig(warm_up_end=500, learning_rate_alpha=0.05, max_steps=20000),
         },
