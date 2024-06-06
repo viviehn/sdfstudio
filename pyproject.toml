@@ -40,7 +40,7 @@ dependencies = [
     "rich==12.5.1",
     "scikit-image==0.19.3",
     "tensorboard==2.9.0",
-    "torch==1.12.1",
+    "torch<=2.0",
     "torchmetrics[image]>=0.9.3",
     "torchtyping>=0.1.4",
     "torchvision>=0.13.0",
@@ -100,7 +100,7 @@ ns-render-mesh = "scripts.render_mesh:entrypoint"
 [options]
 # equivalent to using --extra-index-url with pip, which is needed for specifying the CUDA version torch and torchvision
 dependency_links = [
-    "https://download.pytorch.org/whl/cu113"
+    "https://download.pytorch.org/whl/cu118"
 ]
 
 [tool.setuptools.packages.find]

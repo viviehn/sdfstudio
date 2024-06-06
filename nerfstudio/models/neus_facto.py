@@ -38,7 +38,7 @@ from nerfstudio.model_components.losses import interlevel_loss, interlevel_loss_
 from nerfstudio.model_components.ray_samplers import ProposalNetworkSampler
 from nerfstudio.utils import colormaps
 from pdb import set_trace as pause
-
+from nerfstudio.utils import profiler
 
 @dataclass
 class NeuSFactoModelConfig(NeuSModelConfig):
@@ -280,6 +280,8 @@ class NeuSFactoModel(NeuSModel):
 
         return callbacks
 
+
+    #@profiler.time_function
     def sample_and_forward_field(self, ray_bundle: RayBundle):
         # pause()
         if isinstance(ray_bundle, torch.Tensor):
@@ -308,6 +310,7 @@ class NeuSFactoModel(NeuSModel):
         }
         return samples_and_field_outputs
 
+    #@profiler.time_function
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = super().get_loss_dict(outputs, batch, metrics_dict)
 
@@ -335,6 +338,7 @@ class NeuSFactoModel(NeuSModel):
 
         return loss_dict
 
+    #@profiler.time_function
     def get_metrics_dict(self, outputs, batch) -> Dict:
         if "sparse_sdf_samples" in batch.keys():
             metrics_dict = {}

@@ -72,11 +72,15 @@ class ExtractMesh:
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
         config, pipeline, _ = eval_setup(self.load_config)
-        data_path = config.pipeline.datamanager.dataparser.data 
-        meta = load_from_json(data_path / "meta_data.json")
+        data_path = config.pipeline.datamanager.dataparser.data
+        config_is_json = data_path.suffix == '.json'
+        if config_is_json:
+            meta = load_from_json(data_path)
+        else:
+            meta = load_from_json(data_path / "meta_data.json")
         w2gt = np.array(meta["worldtogt"])
-        self.bounding_box_min = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_min
-        self.bounding_box_max = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_max
+        #self.bounding_box_min = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_min
+        #self.bounding_box_max = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_max
         if "785e7504b9" in str(data_path):
             self.bounding_box_min = (-0.8833908, -0.8145288, -0.28770024) 
             self.bounding_box_max = (0.88231796, 0.8690518, 0.28507677)
@@ -136,6 +140,7 @@ class ExtractMesh:
             )
         else:
             assert self.resolution % 512 == 0
+            print(self.bounding_box_min, self.bounding_box_max)
             # for sdf we can multi-scale extraction.
             get_surface_sliding(
                 sdf=lambda x: pipeline.model.field.forward_geonetwork(x)[:, 0].contiguous(),

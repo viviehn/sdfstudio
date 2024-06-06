@@ -271,7 +271,12 @@ class SDFStudio(DataParser):
 
     def _generate_dataparser_outputs(self, split="train"):  # pylint: disable=unused-argument,too-many-statements
         # load meta data
-        meta = load_from_json(self.config.data / "meta_data.json")
+        config_is_json = self.config.data.suffix == '.json'
+        data_dir = self.config.data.parent if config_is_json else self.config.data
+        if config_is_json:
+            meta = load_from_json(self.config.data)
+        else:
+            meta = load_from_json(self.config.data / "meta_data.json")
 
         indices = list(range(len(meta["frames"])))
 
@@ -296,7 +301,10 @@ class SDFStudio(DataParser):
         cy = []
         camera_to_worlds = []
         for i, frame in enumerate(meta["frames"]):
-            image_filename = self.config.data / frame["rgb_path"]
+            if config_is_json:
+                image_filename = data_dir / frame["rgb_path"]
+            else:
+                image_filename = self.config.data / frame["rgb_path"]
 
             intrinsics = torch.tensor(frame["intrinsics"])
             camtoworld = torch.tensor(frame["camtoworld"])
@@ -312,11 +320,17 @@ class SDFStudio(DataParser):
             if self.config.include_mono_prior:
                 assert meta["has_mono_prior"]
                 # load mono depth
-                depth = np.load(self.config.data / frame["mono_depth_path"])
+                if config_is_json:
+                    depth = np.load(data_dir / frame["mono_depth_path"])
+                else:
+                    depth = np.load(self.config.data / frame["mono_depth_path"])
                 depth_images.append(torch.from_numpy(depth).float())
 
                 # load mono normal
-                normal = np.load(self.config.data / frame["mono_normal_path"])
+                if config_is_json:
+                    normal = np.load(data_dir / frame["mono_normal_path"])
+                else:
+                    normal = np.load(self.config.data / frame["mono_normal_path"])
 
                 # transform normal to world coordinate system
                 normal = normal * 2.0 - 1.0  # omnidata output is normalized so we convert it back to normal here
@@ -328,13 +342,21 @@ class SDFStudio(DataParser):
                 normal_map = torch.nn.functional.normalize(normal_map, p=2, dim=0)
 
                 normal_map = rot @ normal_map
-                normal_map = normal_map.permute(1, 0).reshape(*normal.shape[1:], 3)
                 normal_images.append(normal_map)
+
+                '''
+                normal_map = rot.to('cuda') @ normal_map.to('cuda')
+                normal_map = normal_map.permute(1, 0).reshape(*normal.shape[1:], 3)
+                normal_map = normal_map.to('cpu')
+                '''
 
             if self.config.include_sensor_depth:
                 assert meta["has_sensor_depth"]
                 # load sensor depth
-                sensor_depth = np.load(self.config.data / frame["sensor_depth_path"])
+                if config_is_json:
+                    sensor_depth = np.load(data_dir / frame["sensor_depth_path"])
+                else:
+                    sensor_depth = np.load(self.config.data / frame["sensor_depth_path"])
                 sensor_depth_images.append(torch.from_numpy(sensor_depth).float())
 
             if self.config.include_foreground_mask:
@@ -350,14 +372,20 @@ class SDFStudio(DataParser):
                     )
                 else:
                     # filenames format is 000000_foreground_mask.png
-                    foreground_mask = np.array(Image.open(self.config.data / frame["foreground_mask"]), dtype="uint8")
+                    if config_is_json:
+                        foreground_mask = np.array(Image.open(data_dir / frame["foreground_mask"]), dtype="uint8")
+                    else:
+                        foreground_mask = np.array(Image.open(self.config.data / frame["foreground_mask"]), dtype="uint8")
                 foreground_mask = foreground_mask[..., :1]
                 foreground_mask_images.append(torch.from_numpy(foreground_mask).float() / 255.0)
 
             if self.config.include_sfm_points:
                 assert meta["has_sparse_sfm_points"]
                 # load sparse sfm points
-                sfm_points_view = np.loadtxt(self.config.data / frame["sfm_sparse_points_view"])
+                if config_is_json:
+                    sfm_points_view = np.loadtxt(data_dir / frame["sfm_sparse_points_view"])
+                else:
+                    sfm_points_view = np.loadtxt(self.config.data / frame["sfm_sparse_points_view"])
                 sfm_points.append(torch.from_numpy(sfm_points_view).float())
 
             # append data
@@ -469,7 +497,10 @@ class SDFStudio(DataParser):
             self.w2gt = np.array(meta["worldtogt"])
             # sdf_fname = self.config.data / "rand_surf-4m.ply"
             # scene = "785e7504b9"
-            self.sdf_path = f"{str(self.config.data)}/../../scans/rand_surf-" #-40m-v9"
+            if config_is_json:
+                self.sdf_path = f"{str(data_dir)}/../../scans/rand_surf-" #-40m-v9"
+            else:
+                self.sdf_path = f"{str(self.config.data)}/../../scans/rand_surf-" #-40m-v9"
             n_images = len(self.meta["frames"])
             n_images = 305
             self.n_images = n_images
@@ -499,7 +530,10 @@ class SDFStudio(DataParser):
             self.bbox_min = (-1.0, -1.0, -1.0)
             self.bbox_max = (1.0, 1.0, 1.0)
         # load pair information
-        pairs_path = self.config.data / "pairs.txt"
+        if config_is_json:
+            pairs_path = data_dir / "pairs.txt"
+        else:
+            pairs_path = self.config.data / "pairs.txt"
         if pairs_path.exists() and split == "train" and self.config.load_pairs:
             with open(pairs_path, "r") as f:
                 pairs = f.readlines()
@@ -542,6 +576,7 @@ class SDFStudio(DataParser):
 
 
     def load_sdf_samples(self, part, split):
+        print(f'Loading sdf samples from part {part}')
         pnum = "40m" if split=="train" else "140k"
         postfix = "-v9"
         if self.config.use_point_color:
