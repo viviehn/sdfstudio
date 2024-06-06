@@ -235,7 +235,7 @@ class VanillaPipeline(Pipeline):
 
         self._model = config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
-            num_train_data=len(self.datamanager.train_dataset),
+            num_train_data=len(self.datamanager.train_dataset), #MULTISCENE TODO: e.g. need to make this work with train_dataset being a list of datasets
             metadata=self.datamanager.train_dataset.metadata,
             world_size=world_size,
             local_rank=local_rank,
@@ -262,6 +262,9 @@ class VanillaPipeline(Pipeline):
             step: current iteration step to update sampler if using DDP (distributed)
         """
         # pause()
+        # MULTISCENE TODO: I think everything here can stay the same, calling forward model 
+        # will handle all the stuff with outputting things from the correct scene.
+        # everything else is scene independent (g.t. will also be in the correct order)
         ray_bundle, batch = self.datamanager.next_train(step)
         model_outputs = self._model(ray_bundle)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)

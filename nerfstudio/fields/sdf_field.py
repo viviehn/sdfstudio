@@ -222,6 +222,8 @@ class SDFField(Field):
         self.use_grid_feature = self.config.use_grid_feature
         self.divide_factor = self.config.divide_factor
 
+        # MULTISCENE TODO: Maybe store # of scenes and points per scene here?
+
         self.num_levels = self.config.num_levels
         self.max_res = self.config.max_res 
         self.base_res = self.config.base_res 
@@ -233,6 +235,7 @@ class SDFField(Field):
 
         if self.config.encoding_type == "hash":
             # feature encoding
+            # MULTISCENE TODO: hash tables are setup here. need to create a hashtable for each scene
             if self.config.vanilla_ngp:
                 self.encoding, in_dim = get_encoder(  #encoding,
                     "hashgrid",
@@ -420,6 +423,7 @@ class SDFField(Field):
         # inputs[:, 1] *= -torch.arange(90000).cuda() / 90000
         # inputs[:, 2] *= 1-torch.arange(90000).cuda() / 90000
         # inputs *= 2
+        # MULTISCENE TODO: hash features are sampled here. need to do this separately for each scene
         if self.use_grid_feature:
             #TODO normalize inputs depending on the whether we model the background or not
             # pause()
