@@ -92,6 +92,7 @@ class DataParserConfig(cfg.InstantiateConfig):
 
     _target: Type = field(default_factory=lambda: DataParser)
     """_target: target class to instantiate"""
+    multiscene: bool = False
     data: Path = Path()
     """Directory specifying location of data."""
 

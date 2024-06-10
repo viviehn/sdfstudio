@@ -325,12 +325,12 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         self.sampler = None
         self.test_mode = test_mode
         self.test_split = "test" if test_mode in ["test", "inference"] else "val"
+
         self.dataparser = self.config.dataparser.setup()
 
         #pause()
 
         self.train_dataset = self.create_train_dataset()
-        self.train_dataset_list = []
         self.eval_dataset = self.create_eval_dataset()
         super().__init__()
 
@@ -361,8 +361,6 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
             CONSOLE.print("[bold yellow]Warning: Some cameras are equirectangular, but using default pixel sampler.")
         return PixelSampler(*args, **kwargs)
 
-    # MULTISCENE TODO: basically every instance variable here should be a list, where each
-    # entry corresponds to a single scene
     def setup_train(self):
         """Sets up the data loaders for training"""
         assert self.train_dataset is not None
@@ -427,8 +425,6 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
             shuffle=False,
         )
 
-    # MULTISCENE TODO: next_train should gather data for each scene,
-    # concat them together, then output the concatenated ray_bundle 
 
     def next_train(self, step: int) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the train dataloader."""
@@ -517,3 +513,5 @@ class FlexibleDataManager(VanillaDataManager):
                 image_batch["src_idxs"][0]
             ]
         return ray_bundle, batch, additional_output
+
+

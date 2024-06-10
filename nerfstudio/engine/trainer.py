@@ -30,6 +30,7 @@ from torch.cuda.amp.grad_scaler import GradScaler
 from typing_extensions import Literal
 
 from nerfstudio.configs import base_config as cfg
+from nerfstudio.data.datamanagers.multiscene_datamanager import MultisceneDataManager
 from nerfstudio.engine.callbacks import (
     TrainingCallback,
     TrainingCallbackAttributes,
@@ -146,12 +147,20 @@ class Trainer:
             num_iterations = self.config.trainer.max_num_iterations
             step = 0
             # TODO loss weight
-            n_images = self.pipeline.datamanager.dataparser.n_images
+            if isinstance(self.pipeline.datamanager, MultisceneDataManager):
+                n_images = self.pipeline.datamanager.dataparser_list[0].n_images
+            else:
+                n_images = self.pipeline.datamanager.dataparser.n_images
             for step in range(self._start_step, self._start_step + num_iterations):
                 with TimeWriter(writer, EventName.ITER_TRAIN_TIME, step=step) as train_t:
                     if n_images > 0 and step > 0 and step % n_images ==0:
                         part = step // n_images
-                        self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']["kwargs"]["sdf_samples"]=self.pipeline.datamanager.dataparser.load_sdf_samples(part, "train")
+                        if isinstance(self.pipeline.datamanager, MultisceneDataManager):
+                            dm = self.pipeline.datamanager
+                            for i in range(dm.num_scenes):
+                                dm.train_image_dataloaders[i].dataset._dataparser_outputs.additional_inputs['sdf_samples']['kwargs']['sdf_samples'] = dm.dataparser_list[i].load_sdf_samples(part,'train')
+                        else:
+                            self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']["kwargs"]["sdf_samples"]=self.pipeline.datamanager.dataparser.load_sdf_samples(part, "train")
 
 
                     self.pipeline.train()

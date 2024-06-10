@@ -97,6 +97,8 @@ class NeuSFactoModelConfig(NeuSModelConfig):
     """initial level of multi-resolution hash encoding"""
     steps_per_level: int = 10_000
     """steps per level of multi-resolution hash encoding"""
+    multiscene: bool = False
+    """supports multiscene training or not"""
 
 
 class NeuSFactoModel(NeuSModel):
@@ -112,6 +114,7 @@ class NeuSFactoModel(NeuSModel):
         """Set the fields and modules."""
         super().populate_modules()
 
+        self.multiscene = self.config.multiscene
         self.density_fns = []
         num_prop_nets = self.config.num_proposal_iterations
         # Build the proposal network(s)
@@ -284,7 +287,7 @@ class NeuSFactoModel(NeuSModel):
     #@profiler.time_function
     def sample_and_forward_field(self, ray_bundle: RayBundle):
         # pause()
-        if isinstance(ray_bundle, torch.Tensor):
+        if isinstance(ray_bundle, torch.Tensor) or self.multiscene:
             sdf_only = self.config.eikonal_loss_mult == 0 and self.config.curvature_loss_multi == 0
             field_outputs = self.field(ray_bundle, return_alphas=False, sdf_only=sdf_only)
             return {"field_outputs": field_outputs}
@@ -309,6 +312,106 @@ class NeuSFactoModel(NeuSModel):
             "ray_samples_list": ray_samples_list,
         }
         return samples_and_field_outputs
+
+    def get_outputs(self, ray_bundle: RayBundle) -> Dict:
+        samples_and_field_outputs = self.sample_and_forward_field(ray_bundle=ray_bundle)
+        # pause()
+
+        # Shotscuts
+        if self.multiscene:
+            field_outputs_list = samples_and_field_outputs["field_outputs"]
+        else:
+            field_outputs_list = [samples_and_field_outputs["field_outputs"]]
+
+        outputs_list = []
+
+        for field_outputs in field_outputs_list:
+            outputs = {}
+            if self.training:
+                if FieldHeadNames.GRADIENT in field_outputs:
+                    grad_points = field_outputs[FieldHeadNames.GRADIENT]
+                    # points_norm = field_outputs["points_norm"]
+                    # outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
+                    outputs.update({"eik_grad": grad_points})
+                if "points_norm" in field_outputs:
+                    points_norm = field_outputs["points_norm"]
+                    outputs.update({"points_norm": points_norm})
+
+                # TODO volsdf use different point set for eikonal loss
+                # grad_points = self.field.gradient(eik_points)
+                # outputs.update({"eik_grad": grad_points})
+
+                outputs.update({"field_outputs": field_outputs})
+
+            # TODO
+                if isinstance(ray_bundle, torch.Tensor) or self.multiscene:
+                    if FieldHeadNames.RGB in field_outputs.keys():
+                        outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
+            outputs_list.append(outputs)
+
+        if isinstance(ray_bundle, torch.Tensor):
+            return outputs_list[0]
+        if self.multiscene:
+            return outputs_list
+
+        ray_samples = samples_and_field_outputs["ray_samples"]
+        weights = samples_and_field_outputs["weights"]
+
+        rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+        depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
+        # the rendered depth is point-to-point distance and we should convert to depth
+        depth = depth / ray_bundle.directions_norm
+
+        # remove the rays that don't intersect with the surface
+        # hit = (field_outputs[FieldHeadNames.SDF] > 0.0).any(dim=1) & (field_outputs[FieldHeadNames.SDF] < 0).any(dim=1)
+        # depth[~hit] = 10000.0
+
+        normal = self.renderer_normal(semantics=field_outputs[FieldHeadNames.NORMAL], weights=weights)
+        accumulation = self.renderer_accumulation(weights=weights)
+
+        # TODO add a flat to control how the background model are combined with foreground sdf field
+        # background model
+        if self.config.background_model != "none" and "bg_transmittance" in samples_and_field_outputs:
+            bg_transmittance = samples_and_field_outputs["bg_transmittance"]
+
+            # sample inversely from far to 1000 and points and forward the bg model
+            ray_bundle.nears = ray_bundle.fars
+            ray_bundle.fars = torch.ones_like(ray_bundle.fars) * self.config.far_plane_bg
+
+            ray_samples_bg = self.sampler_bg(ray_bundle)
+            # use the same background model for both density field and occupancy field
+            field_outputs_bg = self.field_background(ray_samples_bg)
+            weights_bg = ray_samples_bg.get_weights(field_outputs_bg[FieldHeadNames.DENSITY])
+
+            rgb_bg = self.renderer_rgb(rgb=field_outputs_bg[FieldHeadNames.RGB], weights=weights_bg)
+
+            # merge background color to forgound color
+            rgb = rgb + bg_transmittance * rgb_bg
+
+        outputs.update({
+            "rgb": rgb,
+            "accumulation": accumulation,
+            "depth": depth,
+            "normal": normal,
+            "weights": weights,
+            "ray_points": self.scene_contraction(
+                ray_samples.frustums.get_start_positions()
+            ),  # used for creating visiblity mask
+            "directions_norm": ray_bundle.directions_norm,  # used to scale z_vals for free space and sdf loss
+        })
+
+        # TODO how can we move it to neus_facto without out of memory
+        if "weights_list" in samples_and_field_outputs:
+            weights_list = samples_and_field_outputs["weights_list"]
+            ray_samples_list = samples_and_field_outputs["ray_samples_list"]
+
+            for i in range(len(weights_list) - 1):
+                outputs[f"prop_depth_{i}"] = self.renderer_depth(
+                    weights=weights_list[i], ray_samples=ray_samples_list[i]
+                )
+        # this is used only in viewer
+        outputs["normal_vis"] = (outputs["normal"] + 1.0) / 2.0
+        return outputs
 
     #@profiler.time_function
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
