@@ -438,6 +438,8 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         # if False: 
         if self.config.dataparser.include_sdf_samples:
             ray_bundle = batch["sparse_sdf_samples"].to(self.device)
+            if step % 100 == 0:
+                print(ray_bundle[:10])
         else:
             ray_indices = batch["indices"]
             ray_bundle = self.train_ray_generator(ray_indices)

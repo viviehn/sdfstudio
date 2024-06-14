@@ -13,8 +13,8 @@ mkdir -p /scratch/vivienn/outputs/$TMP_STR
 
 OMP_NUM_THREADS=4 ns-train neus-facto-angelo \
     --output-dir /scratch/vivienn/outputs/$TMP_STR \
-    --trainer.max-num-iterations 6101  --trainer.steps_per_save 1000\
-    --trainer.steps-per-eval-image 2000\
+    --trainer.max-num-iterations 200001  --trainer.steps_per_save 40000\
+    --trainer.steps-per-eval-image 10000\
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
@@ -25,7 +25,7 @@ OMP_NUM_THREADS=4 ns-train neus-facto-angelo \
     --pipeline.model.sdf-field.base-res 16\
     --pipeline.model.sdf-field.max-res 2048\
     --pipeline.model.steps-per-level 800\
-    --pipeline.model.sdf-field.use-appearance-embedding False\
+    --pipeline.model.sdf-field.use-appearance-embedding True\
     --pipeline.model.sdf-field.use-position-encoding True\
     --pipeline.model.sdf-field.vanilla-ngp True\
     --pipeline.model.sdf-field.geometric-init True\
@@ -42,9 +42,6 @@ OMP_NUM_THREADS=4 ns-train neus-facto-angelo \
     --experiment-name $DATA_ID     sdfstudio-data \
     --data /n/fs/3d-indoor/vivien_data/data/$DATA_ID/dslr/sdfstudio \
     --include_sdf_samples True
-    #--pipeline.model.curvature-loss-multi 0.0\
-    #--pipeline.model.eikonal-loss-mult 0.0\
-    #--trainer.load-dir outputs/ngp-best/neus-facto-angelo/2024-02-26_105859/sdfstudio_models \
 
 mkdir -p /n/fs/3d-indoor/vivien_sdfstudio_outputs/ngp-sdf-baseline/$DATA_ID/neus-facto-angelo
 mv /scratch/vivienn/outputs/$TMP_STR/$DATA_ID/neus-facto-angelo/$TMP_STR /n/fs/3d-indoor/vivien_sdfstudio_outputs/ngp-sdf-baseline/$DATA_ID/neus-facto-angelo

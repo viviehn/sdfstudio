@@ -14,15 +14,15 @@ OMP_NUM_THREADS=4 ns-train $method \
     --output-dir $local_outdir \
     --trainer.max-num-iterations 100001  --trainer.steps_per_save 10000\
     --trainer.steps-per-eval-batch 10000 --trainer.steps-per-eval-image 10000 \
-    --pipeline.model.sdf-field.inside-outside True     \
+    --pipeline.model.sdf-field.inside-outside False     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
     --pipeline.model.sdf-field.geo-feat-dim 64     \
     --pipeline.model.sdf-field.num-layers-color 2     \
-    --pipeline.model.sdf-field.log2-hashmap-size 22\
-    --pipeline.model.sdf-field.hash-features-per-level 4\
+    --pipeline.model.sdf-field.log2-hashmap-size 24\
+    --pipeline.model.sdf-field.hash-features-per-level 16\
     --pipeline.model.sdf-field.base-res 16\
-    --pipeline.model.sdf-field.max-res 2048\
+    --pipeline.model.sdf-field.max-res 4096\
     --pipeline.model.enable-progressive-hash-encoding False\
     --pipeline.model.sdf-field.use-appearance-embedding True\
     --pipeline.model.sdf-field.use-position-encoding True\

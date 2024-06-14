@@ -14,7 +14,7 @@ OMP_NUM_THREADS=4 ns-train $method \
     --output-dir $local_outdir \
     --trainer.max-num-iterations 100001  --trainer.steps_per_save 10000\
     --trainer.steps-per-eval-batch 10000 --trainer.steps-per-eval-image 10000 \
-    --pipeline.model.sdf-field.inside-outside True     \
+    --pipeline.model.sdf-field.inside-outside False     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
     --pipeline.model.sdf-field.geo-feat-dim 64     \

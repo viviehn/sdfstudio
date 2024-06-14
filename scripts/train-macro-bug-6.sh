@@ -14,7 +14,7 @@ OMP_NUM_THREADS=4 ns-train $method \
     --output-dir $local_outdir \
     --trainer.max-num-iterations 100001  --trainer.steps_per_save 10000\
     --trainer.steps-per-eval-batch 10000 --trainer.steps-per-eval-image 10000 \
-    --pipeline.model.sdf-field.inside-outside True     \
+    --pipeline.model.sdf-field.inside-outside False     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
     --pipeline.model.sdf-field.geo-feat-dim 64     \
@@ -31,12 +31,15 @@ OMP_NUM_THREADS=4 ns-train $method \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False \
     --pipeline.model.background-model none\
+    --pipeline.model.background-color white\
     --pipeline.datamanager.train_num_images_to_sample_from -1\
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
     --pipeline.datamanager.eval_num_images_to_sample_from 8 --vis tensorboard\
     --timestamp $TMP_STR \
     --experiment-name macro-bug-1-$experiment     sdfstudio-data \
     --data $data_path
+    #--pipeline.model.curvature-loss-multi 0.005 \
+    #--pipeline.model.eikonal-loss-mult 0.1 \
 
 full_output_path=/scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR
 resolution=2048

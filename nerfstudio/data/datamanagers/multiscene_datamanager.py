@@ -251,7 +251,8 @@ class MultisceneDataManager(DataManager):
             batch_list.append(batch)
             if self.config.dataparser.include_sdf_samples:
                 ray_bundle = batch["sparse_sdf_samples"].to(self.device)
-                print(ray_bundle[:10])
+                if step % 100 == 0:
+                    print(ray_bundle[:10])
                 cat_ray_bundles.append(ray_bundle)
             else:
                 ray_indices = batch["indices"]

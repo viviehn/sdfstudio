@@ -204,6 +204,7 @@ def get_sdf_samples(image_idx: int, sdf_samples):
     # choices = np.random.choice(sdf_samples.shape[0], size=10, replace=False)
     # sparse_sdf_samples = sdf_samples[choices].reshape(-1, 4)
     sparse_sdf_samples = BasicImages([sparse_sdf_samples])
+    print(sparse_sdf_samples[:10])
     return {"sparse_sdf_samples": sparse_sdf_samples}
 
 
@@ -229,6 +230,8 @@ class SDFStudioDataParserConfig(DataParserConfig):
     """whether or not to load sfm points"""
     include_sdf_samples: bool = False
     """whether or not to load sdf samples"""
+    num_sdf_files: int = 20
+    """number of sdf files available to sample from"""
     scale_factor: float = 1.0
     """How much to scale the camera origins by."""
     # TODO supports downsample
@@ -569,7 +572,10 @@ class SDFStudio(DataParser):
         pnum = "40m" if split=="train" else "140k"
         postfix = "-v9"
         if self.config.use_point_color:
-            postfix += "-rgb"
+            if split=="train":
+                postfix += "-rgb"
+            else:
+                postfix += "-rgb2"
         # TODO eval load smaller size
         path = self.sdf_path + pnum + postfix  #  + "-v9"
         path = f"{path}-{part}.ply"

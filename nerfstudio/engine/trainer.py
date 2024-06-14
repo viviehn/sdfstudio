@@ -153,14 +153,17 @@ class Trainer:
                 n_images = self.pipeline.datamanager.dataparser.n_images
             for step in range(self._start_step, self._start_step + num_iterations):
                 with TimeWriter(writer, EventName.ITER_TRAIN_TIME, step=step) as train_t:
-                    if n_images > 0 and step > 0 and step % n_images ==0:
-                        part = step // n_images
+                    sdf_training = self.config.pipeline.datamanager.dataparser.include_sdf_samples
+                    if sdf_training and n_images > 0 and step > 0 and step % n_images ==0:
+                        part = (step // n_images) % self.config.pipeline.datamanager.dataparser.num_sdf_files
                         if isinstance(self.pipeline.datamanager, MultisceneDataManager):
                             dm = self.pipeline.datamanager
                             for i in range(dm.num_scenes):
                                 dm.train_image_dataloaders[i].dataset._dataparser_outputs.additional_inputs['sdf_samples']['kwargs']['sdf_samples'] = dm.dataparser_list[i].load_sdf_samples(part,'train')
+                                print('new samples', i, dm.train_image_dataloaders[i].dataset._dataparser_outputs.additional_inputs['sdf_samples']['kwargs']['sdf_samples'][:10])
                         else:
                             self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']["kwargs"]["sdf_samples"]=self.pipeline.datamanager.dataparser.load_sdf_samples(part, "train")
+                            print('new samples', self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']['kwargs']['sdf_samples'][:10])
 
 
                     self.pipeline.train()
@@ -195,7 +198,8 @@ class Trainer:
                     writer.put_dict(name="Train Loss Dict", scalar_dict=loss_dict, step=step)
                     writer.put_dict(name="Train Metrics Dict", scalar_dict=metrics_dict, step=step)
 
-                self.eval_iteration(step)
+                if not isinstance(self.pipeline.datamanager, MultisceneDataManager):
+                    self.eval_iteration(step)
 
                 if step_check(step, self.config.trainer.steps_per_save):
                     self.save_checkpoint(step)
