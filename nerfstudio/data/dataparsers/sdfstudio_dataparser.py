@@ -171,6 +171,19 @@ def get_foreground_masks(image_idx: int, fg_masks):
 
     return {"fg_mask": fg_mask}
 
+def get_foreground_masks(image_idx: int, focus_masks):
+    """function to process additional foreground_masks
+
+    Args:
+        image_idx: specific image index to work with
+        fg_masks: foreground_masks
+    """
+
+    # sensor depth
+    focus_mask = focus_masks[image_idx]
+
+    return {"focus_mask": focus_mask}
+
 
 def get_sparse_sfm_points(image_idx: int, sfm_points):
     """function to process additional sparse sfm points
@@ -221,6 +234,10 @@ class SDFStudioDataParserConfig(DataParserConfig):
     """whether or not to load sensor depth"""
     include_foreground_mask: bool = False
     """whether or not to load foreground mask"""
+    include_focus_mask: bool = False
+    """whether or not to load focus mask"""
+    focus_mask_blur_width: int = 0
+    """width used to generate focus masks"""
     include_sfm_points: bool = False
     """whether or not to load sfm points"""
     include_sdf_samples: bool = False
@@ -294,6 +311,7 @@ class SDFStudio(DataParser):
         normal_images = []
         sensor_depth_images = []
         foreground_mask_images = []
+        focus_mask_images = []
         sfm_points = []
         fx = []
         fy = []
@@ -378,6 +396,17 @@ class SDFStudio(DataParser):
                         foreground_mask = np.array(Image.open(self.config.data / frame["foreground_mask"]), dtype="uint8")
                 foreground_mask = foreground_mask[..., :1]
                 foreground_mask_images.append(torch.from_numpy(foreground_mask).float() / 255.0)
+
+            if self.config.include_focus_mask:
+                assert self.config.focus_mask_blur_width != 0
+                mask_dir = f'focus_masks_{self.config.focus_mask_blur_width}'
+                mask_filename = frame['rgb_path'].replace('images/', f'{mask_dir}/mask_')
+
+                path_to_mask = (data_dir / mask_filename)
+                focus_mask = np.array(Image.open(path_to_mask), dtype="uint8")
+                focus_mask = focus_mask[..., :1]
+                focus_mask_images.append(torch.from_numpy(focus_mask).float() / 255.0)
+
 
             if self.config.include_sfm_points:
                 assert meta["has_sparse_sfm_points"]
@@ -484,6 +513,12 @@ class SDFStudio(DataParser):
             additional_inputs_dict["foreground_masks"] = {
                 "func": get_foreground_masks,
                 "kwargs": {"fg_masks": filter_list(foreground_mask_images, indices)},
+            }
+
+        if self.config.include_focus_mask:
+            additional_inputs_dict["focus_masks"] = {
+                "func": get_focus_masks,
+                "kwargs": {"focus_masks": filter_list(focus_mask_images, indices)},
             }
 
         if self.config.include_sfm_points:

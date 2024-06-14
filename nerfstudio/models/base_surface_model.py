@@ -536,6 +536,7 @@ class SurfaceModel(Model):
         metrics_dict = {}
         image = batch["image"].to(self.device)
         metrics_dict["psnr"] = self.psnr(outputs["rgb"], image)
+        metrics_dict["orig_rgb"] = self.rgb_loss(outputs["rgb"], image).mean()
         return metrics_dict
 
     def get_image_metrics_and_images(

@@ -56,6 +56,7 @@ from nerfstudio.field_components.temporal_distortions import TemporalDistortionK
 from nerfstudio.fields.sdf_field import SDFFieldConfig
 from nerfstudio.models.bakedsdf import BakedSDFModelConfig
 from nerfstudio.models.dto import DtoOModelConfig
+from nerfstudio.models.fwl import FWLModelConfig
 from nerfstudio.models.instant_ngp import InstantNGPModelConfig
 from nerfstudio.models.mipnerf import MipNerfModel
 from nerfstudio.models.nerfacto import NerfactoModelConfig
@@ -1197,6 +1198,95 @@ method_configs["phototourism"] = Config(
         "fields": {
             "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
             "scheduler": None,
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+    vis="viewer",
+)
+
+method_configs["fwl-nfa"] = Config(
+    method_name="fwl-nfa",
+    trainer=TrainerConfig(
+        steps_per_eval_image=5000,
+        steps_per_eval_batch=5000,
+        steps_per_save=20000,
+        steps_per_eval_all_images=1000000,  # set to a very large model so we don't eval with all images
+        max_num_iterations=1000_001,
+        mixed_precision=False,
+    ),
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            dataparser=SDFStudioDataParserConfig(),
+            train_num_rays_per_batch=2048,
+            eval_num_rays_per_batch=1024,
+            camera_optimizer=CameraOptimizerConfig(
+                mode="off", optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2)
+            ),
+        ),
+        model=FWLModelConfig(
+            near_plane=0.01,
+            far_plane=1000.0,
+            overwrite_near_far_plane=True,
+            sdf_field=SDFFieldConfig(
+                use_grid_feature=True,
+                num_layers=1,
+                num_layers_color=4,
+                hidden_dim=256,
+                hidden_dim_color=256,
+                geometric_init=True,
+                bias=0.5,
+                beta_init=0.3,
+                inside_outside=False,
+                use_appearance_embedding=True,
+                use_numerical_gradients=True,
+                base_res=64,
+                max_res=4096,
+                log2_hashmap_size=22,
+                hash_features_per_level=8,
+                hash_smoothstep=False,
+                use_position_encoding=False,
+            ),
+            background_model="grid",
+            eval_num_rays_per_chunk=1024,
+            level_init=8,
+            eikonal_loss_mult=0.01,
+            use_anneal_beta=True,
+            enable_progressive_hash_encoding=True,
+            enable_numerical_gradients_schedule=True,
+            enable_curvature_loss_schedule=True,
+            curvature_loss_multi=5e-4,
+        ),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": MultiStepSchedulerConfig(max_steps=1000_000),
+        },
+        # "fields": {
+            # "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000, 800_000], gamma=0.1),
+        # },
+        # "fields": {
+            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
+        # },
+        "fields_color": {
+            "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[600_000, 800_000], gamma=0.1),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000, 800_000], gamma=0.1),
+        },
+        "fields_geometry": {
+            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15, betas=(0.9, 0.99)),
+            "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[200_000], gamma=0.1),
+            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15, betas=(0.9, 0.99)),
+            # # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
+            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[120_000], gamma=0.1),
+        },
+        "field_background": {
+            "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[300_000, 400_000], gamma=0.1),
         },
     },
     viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
