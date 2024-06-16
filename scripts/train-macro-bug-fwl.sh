@@ -8,8 +8,8 @@ local_outdir=/scratch/vivienn/outputs/$TMP_STR/
 experiment=$1
 blur_width=$2
 data_path=/n/fs/lines/macro_bug/$experiment.json
-method=neus-facto-angelo
-#method=fwl-nfa
+#method=neus-facto-angelo
+method=fwl-nfa
 mkdir -p $local_outdir
 
 all_str="all"
@@ -51,6 +51,7 @@ OMP_NUM_THREADS=4 ns-train $method \
     --timestamp $TMP_STR \
     --experiment-name macro-bug-1-$experiment     sdfstudio-data \
     --data $data_path \
+    --include-focus-mask True --focus-mask-blur-width $blur_width
 
 full_output_path=/scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR
 resolution=2048

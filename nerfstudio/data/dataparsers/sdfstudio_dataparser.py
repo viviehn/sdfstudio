@@ -171,7 +171,7 @@ def get_foreground_masks(image_idx: int, fg_masks):
 
     return {"fg_mask": fg_mask}
 
-def get_foreground_masks(image_idx: int, focus_masks):
+def get_focus_masks(image_idx: int, focus_masks):
     """function to process additional foreground_masks
 
     Args:
