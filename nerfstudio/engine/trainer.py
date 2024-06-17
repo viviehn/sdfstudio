@@ -154,6 +154,7 @@ class Trainer:
             for step in range(self._start_step, self._start_step + num_iterations):
                 with TimeWriter(writer, EventName.ITER_TRAIN_TIME, step=step) as train_t:
                     sdf_training = self.config.pipeline.datamanager.dataparser.include_sdf_samples
+                    '''
                     if sdf_training and n_images > 0 and step > 0 and step % n_images ==0:
                         part = (step // n_images) % self.config.pipeline.datamanager.dataparser.num_sdf_files
                         if isinstance(self.pipeline.datamanager, MultisceneDataManager):
@@ -164,6 +165,7 @@ class Trainer:
                         else:
                             self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']["kwargs"]["sdf_samples"]=self.pipeline.datamanager.dataparser.load_sdf_samples(part, "train")
                             print('new samples', self.pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.additional_inputs['sdf_samples']['kwargs']['sdf_samples'][:10])
+                    '''
 
 
                     self.pipeline.train()
