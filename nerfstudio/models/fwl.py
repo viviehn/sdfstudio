@@ -10,9 +10,6 @@ from typing import Type
 
 from nerfstudio.models.neus_facto import NeuSFactoModel, NeuSFactoModelConfig
 
-def get_focus_weighted_loss(rgb_loss, weight_vals):
-    return (rgb_loss*weight_vals.to(rgb_loss.device)).mean()
-
 
 @dataclass
 class FWLModelConfig(NeuSFactoModelConfig):
@@ -34,8 +31,12 @@ class FWLModel(NeuSFactoModel):
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = super().get_loss_dict(outputs, batch, metrics_dict)
+        image = batch["image"].to(self.device)
         focus_mask = batch["focus_mask"].to(self.device)
-        loss_dict['focus_weighted_loss'] = get_focus_weighted_loss(outputs["rgb"], focus_mask)
+        unreduced_loss = self.rgb_loss2(image, outputs["rgb"])
+        weighted_loss = unreduced_loss * focus_mask
+        fwloss = weighted_loss.mean()
+        loss_dict['focus_weighted_loss'] = fwloss
 
         # fwl_mult is actually used on the original rgb loss 
 

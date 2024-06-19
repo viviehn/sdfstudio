@@ -232,6 +232,7 @@ class SurfaceModel(Model):
 
         # losses
         self.rgb_loss = L1Loss()
+        self.rgb_loss2 = L1Loss(reduction='none')
         self.s3im_loss = S3IM(s3im_kernel_size=self.config.s3im_kernel_size, s3im_stride=self.config.s3im_stride, s3im_repeat_time=self.config.s3im_repeat_time, s3im_patch_height=self.config.s3im_patch_height)
 
         self.eikonal_loss = MSELoss()

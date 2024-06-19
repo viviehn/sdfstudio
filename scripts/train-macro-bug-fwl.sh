@@ -26,9 +26,9 @@ fi
 
 OMP_NUM_THREADS=4 ns-train $method \
     --output-dir $local_outdir \
-    --trainer.max-num-iterations 60001  --trainer.steps_per_save 10000\
-    --trainer.steps-per-eval-batch 10000 --trainer.steps-per-eval-image 10000 \
-    --pipeline.model.sdf-field.inside-outside True     \
+    --trainer.max-num-iterations 30001  --trainer.steps_per_save 10000\
+    --trainer.steps-per-eval-batch 10000 --trainer.steps-per-eval-image 1000 \
+    --pipeline.model.sdf-field.inside-outside False     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
     --pipeline.model.sdf-field.geo-feat-dim 64     \
@@ -45,6 +45,7 @@ OMP_NUM_THREADS=4 ns-train $method \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False \
     --pipeline.model.background-model none\
+    --pipeline.model.fwl_mult .1\
     --pipeline.datamanager.train_num_images_to_sample_from $num_images\
     --pipeline.datamanager.train_num_times_to_repeat_images $num_times\
     --pipeline.datamanager.eval_num_images_to_sample_from 8 --vis tensorboard\
