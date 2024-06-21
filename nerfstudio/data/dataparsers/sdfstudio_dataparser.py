@@ -204,7 +204,6 @@ def get_sdf_samples(image_idx: int, sdf_samples):
     # choices = np.random.choice(sdf_samples.shape[0], size=10, replace=False)
     # sparse_sdf_samples = sdf_samples[choices].reshape(-1, 4)
     sparse_sdf_samples = BasicImages([sparse_sdf_samples])
-    print(sparse_sdf_samples.images[:10])
     return {"sparse_sdf_samples": sparse_sdf_samples}
 
 
