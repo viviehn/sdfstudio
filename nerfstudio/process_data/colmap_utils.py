@@ -521,6 +521,7 @@ def run_colmap(
         f"--image_path {image_dir}",
         "--ImageReader.single_camera 1",
         f"--ImageReader.camera_model {camera_model.value}",
+        f"--ImageReader.default_focal_length_factor 4.71",
         f"--SiftExtraction.use_gpu {int(gpu)}",
     ]
     feature_extractor_cmd = " ".join(feature_extractor_cmd)

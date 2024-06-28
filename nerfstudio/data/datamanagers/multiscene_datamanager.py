@@ -94,10 +94,14 @@ class MultisceneDataManager(DataManager):
 
         self.num_scenes = len(self.config.dataparser.multiscene_data)
         self.dataparser_list = [self.config.dataparser.setup() for scene in self.config.dataparser.multiscene_data]
+        print(self.dataparser_list)
 
         self.train_dataset_list = []
         for scene, dataparser in zip(self.config.dataparser.multiscene_data, self.dataparser_list):
+            print(scene)
             self.train_dataset_list.append(self.create_train_dataset(scene, dataparser))
+
+        print(self.train_dataset_list)
 
         self.eval_dataset_list = []
         for scene, dataparser in zip(self.config.dataparser.multiscene_data, self.dataparser_list):
@@ -106,6 +110,7 @@ class MultisceneDataManager(DataManager):
 
         self.train_dataset = self.train_dataset_list[0]
         self.eval_dataset = self.eval_dataset_list[0]
+
         super().__init__()
 
     def create_train_dataset(self, scene=None, dataparser=None) -> InputDataset:
@@ -149,7 +154,7 @@ class MultisceneDataManager(DataManager):
         self.fixed_indices_train_dataloaders = []
         for train_dataset in self.train_dataset_list:
             train_image_dataloader = CacheDataloader(
-                self.train_dataset,
+                train_dataset,
                 num_images_to_sample_from=self.config.train_num_images_to_sample_from,
                 num_times_to_repeat_images=self.config.train_num_times_to_repeat_images,
                 device=self.device,
@@ -194,7 +199,7 @@ class MultisceneDataManager(DataManager):
         self.eval_dataloaders = []
         for eval_dataset in self.eval_dataset_list:
             eval_image_dataloader = CacheDataloader(
-                self.eval_dataset,
+                eval_dataset,
                 num_images_to_sample_from=self.config.eval_num_images_to_sample_from,
                 num_times_to_repeat_images=self.config.eval_num_times_to_repeat_images,
                 device=self.device,
@@ -251,8 +256,6 @@ class MultisceneDataManager(DataManager):
             batch_list.append(batch)
             if self.config.dataparser.include_sdf_samples:
                 ray_bundle = batch["sparse_sdf_samples"].to(self.device)
-                if step % 100 == 0:
-                    print(ray_bundle[:10])
                 cat_ray_bundles.append(ray_bundle)
             else:
                 ray_indices = batch["indices"]
@@ -263,22 +266,42 @@ class MultisceneDataManager(DataManager):
     def next_eval(self, step: int) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the eval dataloader."""
         self.eval_count += 1
-        image_batch = next(self.iter_eval_image_dataloader)
-        batch = self.eval_pixel_sampler.sample(image_batch)
-        ray_indices = batch["indices"]
-        ray_bundle = self.eval_ray_generator(ray_indices)
-        return ray_bundle, batch
+        cat_ray_bundles = []
+        batch_list = []
+        for i in range(len(self.eval_dataset_list)):
+            iter_eval_image_dataloader = self.iter_eval_image_dataloaders[i]
+            eval_pixel_sampler = self.eval_pixel_samplers[i]
+            eval_ray_generator = self.eval_ray_generators[i]
+            image_batch = next(iter_eval_image_dataloader)
+            batch = eval_pixel_sampler.sample(image_batch)
+            batch_list.append(batch)
+            if self.config.dataparser.include_sdf_samples:
+                ray_bundle = batch["sparse_sdf_samples"].to(self.device)
+                cat_ray_bundles.append(ray_bundle)
+            else:
+                ray_indices = batch["indices"]
+                ray_bundle = eval_ray_generator(ray_indices)
+                cat_ray_bundles.append(ray_bundle)
+        return cat_ray_bundles, batch_list
 
     def next_eval_image(self, step: int) -> Tuple[int, RayBundle, Dict]:
-        for camera_ray_bundle, batch in self.eval_dataloader:
-            assert camera_ray_bundle.camera_indices is not None
-            if isinstance(batch["image"], BasicImages):  # If this is a generalized dataset, we need to get image tensor
-                batch["image"] = batch["image"].images[0]
-                camera_ray_bundle = camera_ray_bundle.reshape((*batch["image"].shape[:-1], 1))
-            image_idx = int(camera_ray_bundle.camera_indices[0, 0, 0])
-            if batch['image'].dtype == torch.uint8:
-                batch['image'] = batch['image'].float() / 255.0
-            return image_idx, camera_ray_bundle, batch
+        image_idx_list = []
+        camera_ray_bundle_list = []
+        batch_list = []
+        for eval_dataloader in self.eval_dataloaders:
+            for camera_ray_bundle, batch in eval_dataloader:
+                assert camera_ray_bundle.camera_indices is not None
+                if isinstance(batch["image"], BasicImages):  # If this is a generalized dataset, we need to get image tensor
+                    batch["image"] = batch["image"].images[0]
+                    camera_ray_bundle = camera_ray_bundle.reshape((*batch["image"].shape[:-1], 1))
+                image_idx = int(camera_ray_bundle.camera_indices[0, 0, 0])
+                if batch['image'].dtype == torch.uint8:
+                    batch['image'] = batch['image'].float() / 255.0
+                image_idx_list.append(image_idx)
+                camera_ray_bundle_list.append(camera_ray_bundle)
+                batch_list.append(batch)
+                break
+        return image_idx_list, camera_ray_bundle_list, batch_list
         raise ValueError("No more eval images")
 
     def get_param_groups(self) -> Dict[str, List[Parameter]]:  # pylint: disable=no-self-use

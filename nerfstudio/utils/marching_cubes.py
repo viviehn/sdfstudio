@@ -47,10 +47,11 @@ def get_surface_sliding(
     # print(ys)
     # print(zs)
     meshes = []
+    print(grid_min, grid_max, N)
     for i in range(N):
         for j in range(N):
             for k in range(N):
-                # print(i, j, k)
+                print(i, j, k)
                 x_min, x_max = xs[i], xs[i + 1]
                 y_min, y_max = ys[j], ys[j + 1]
                 z_min, z_max = zs[k], zs[k + 1]
@@ -88,7 +89,9 @@ def get_surface_sliding(
                 # evalute pyramid with mask
                 mask = None
                 threshold = 2 * (x_max - x_min) / cropN * 8
+                print(len(points_pyramid))
                 for pid, pts in enumerate(points_pyramid):
+                    print(pid)
                     coarse_N = pts.shape[-1]
                     pts = pts.reshape(3, -1).permute(1, 0).contiguous()
 
@@ -125,15 +128,18 @@ def get_surface_sliding(
                     threshold /= 2.0
 
                 z = pts_sdf.detach().cpu().numpy()
+                print(z)
 
                 # skip if no surface found
                 if current_mask is not None:
+                    print('a')
                     valid_z = z.reshape(cropN, cropN, cropN)[current_mask]
                     if valid_z.shape[0] <= 0 or (np.min(valid_z) > level or np.max(valid_z) < level):
                         continue
 
                 if not (np.min(z) > level or np.max(z) < level):
                     z = z.astype(np.float32)
+                    print('b')
                     verts, faces, normals, _ = measure.marching_cubes(
                         volume=z.reshape(cropN, cropN, cropN),  # .transpose([1, 0, 2]),
                         level=level,
@@ -144,9 +150,11 @@ def get_surface_sliding(
                         ),
                         mask=current_mask,
                     )
+                    print('c')
                     # print(np.array([x_min, y_min, z_min]))
                     # print(verts.min(), verts.max())
                     verts = verts + np.array([x_min, y_min, z_min])
+                    print('c2')
                     def evaluate_color(points):
                         z = []
                         for _, pnts in enumerate(torch.split(points, 100000, dim=0)):
@@ -154,6 +162,7 @@ def get_surface_sliding(
                         z = torch.cat(z, axis=0)
                         return z
                     if use_point_color:
+                        print("use point color")
                         inputs = np.zeros((verts.shape[0], 1))
                         inputs = np.concatenate([verts, inputs], 1)
                         inputs = torch.from_numpy(inputs).float().cuda()
@@ -162,12 +171,15 @@ def get_surface_sliding(
                     else:
                         color = None
                     # print(verts.min(), verts.max())
-                    verts = verts * np.diag(w2gt)[:3][None] + w2gt[:3, 3][None] 
+                    verts = verts * np.diag(w2gt)[:3][None] + w2gt[:3, 3][None]
                     # pause()
+
+                    print('d')
 
                     meshcrop = trimesh.Trimesh(verts, faces, normals, vertex_colors=color)
                     # meshcrop.export(f"{i}_{j}_{k}.ply")
                     meshes.append(meshcrop)
+                    print('e')
 
     combined = trimesh.util.concatenate(meshes)
     # pause()

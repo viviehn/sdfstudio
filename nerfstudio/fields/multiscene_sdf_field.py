@@ -51,11 +51,16 @@ class MultisceneSDFField(SDFField):
                          spatial_distortion)
 
         self.num_scenes = config.num_scenes
+        #self.encoding=None
+        #print(self.encoding)
 
         assert self.config.encoding_type == "hash", "incompatible with multiscene training"
         assert self.config.vanilla_ngp, "incompatible with multiscene training"
 
+        #self.encoding2 = self.encoding
 
+
+        #self.encodings_list = [torch.tensor(3)]
         self.encodings_list = []
         for i in range(self.num_scenes):
             enc, in_dim = get_encoder(  #encoding,
@@ -69,9 +74,12 @@ class MultisceneSDFField(SDFField):
                 align_corners=False,
                 )
             self.encodings_list.append(enc)
+        #self.encoding=self.encodings_list[0]
+        self.encodings_list = nn.ModuleList(self.encodings_list)
+        self.encoding=None
 
 
-    def forward_geonetwork(self, inputs):
+    def forward_geonetwork(self, inputs, encoding):
         """forward the geonetwork"""
         # inputs = torch.ones_like(inputs)[:90000]
         # inputs[:, 0] *= torch.arange(90000).cuda() / 90000 - 0.5
@@ -87,19 +95,19 @@ class MultisceneSDFField(SDFField):
                 # positions = inputs / 2
             else:
                 positions = (inputs + 2.0) / 4.0
-            # positions = (inputs + 1.0) / 2.0
-            feature = self.encoding(positions)
+            # position= (inputs + 1.0) / 2.0
+            feature = encoding(positions)
             # mask feature
             if not self.config.vanilla_ngp:
                 feature = feature * self.hash_encoding_mask.to(feature.device)
         else:
-            feature = torch.zeros_like(inputs[:, :1].repeat(1, self.encoding.n_output_dims))
+            feature = torch.zeros_like(inputs[:, :1].repeat(1, encoding.n_output_dims))
 
         if not self.config.vanilla_ngp:
             pe = self.position_encoding(inputs)
             if not self.config.use_position_encoding:
                 pe = torch.zeros_like(pe)
-            
+
             inputs = torch.cat((inputs, pe, feature), dim=-1)
         else:
             inputs = feature.float()
@@ -129,12 +137,12 @@ class MultisceneSDFField(SDFField):
 
     def get_outputs(self, ray_samples_list: List, return_alphas=False, return_occupancy=False, sdf_only=False, need_rgb=False):
         outputs_list = []
-        for ray_samples in ray_samples_list:
+        for ray_samples, encoding in zip(ray_samples_list, self.encodings_list):
             inputs = ray_samples[:, :3]
             # compute gradient in constracted space
             inputs.requires_grad_(True)
             with torch.enable_grad():
-                h = self.forward_geonetwork(inputs)
+                h = self.forward_geonetwork(inputs, encoding)
                 sdf, geo_feature = torch.split(h, [1, self.config.geo_feat_dim], dim=-1)
             outputs = {
                     FieldHeadNames.SDF: sdf,

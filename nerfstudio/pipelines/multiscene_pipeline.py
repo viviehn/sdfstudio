@@ -92,6 +92,7 @@ class MultiscenePipeline(Pipeline):
             local_rank=local_rank,
         )
         self.model.to(device)
+        [e.to(device) for e in self.model.field.encodings_list]
 
         self.world_size = world_size
         if world_size > 1:
@@ -117,7 +118,7 @@ class MultiscenePipeline(Pipeline):
         # will handle all the stuff with outputting things from the correct scene.
         # everything else is scene independent (g.t. will also be in the correct order)
         ray_bundle_list, batch_list = self.datamanager.next_train(step)
-        model_outputs = self._model(ray_bundle_list)
+        model_outputs = self.model(ray_bundle_list)
         assert len(model_outputs) == len(batch_list)
         # model_outputs is a list with # corresponding to # of scenes
         metrics_dict_list = []
@@ -166,12 +167,32 @@ class MultiscenePipeline(Pipeline):
             step: current iteration step
         """
         self.eval()
-        ray_bundle, batch = self.datamanager.next_eval(step)
-        model_outputs = self.model(ray_bundle)
-        metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
-        loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
+        ray_bundle_list, batch_list = self.datamanager.next_eval(step)
+        model_outputs = self.model(ray_bundle_list)
+        print(model_outputs)
+        assert len(model_outputs) == len(batch_list)
+
+        metrics_dict_list = []
+        for model_output, batch in zip(model_outputs, batch_list):
+            metrics_dict = self.model.get_metrics_dict(model_output, batch)
+            metrics_dict_list.append(metrics_dict)
+
+        loss_dict_list = []
+        for model_output, batch, metrics_dict in zip(model_outputs, batch_list, metrics_dict_list):
+            print(model_output)
+            loss_dict = self.model.get_loss_dict(model_output, batch, metrics_dict)
+            loss_dict_list.append(loss_dict)
+
+        loss_dict_merged = {}
+        for loss_dict_key in loss_dict_list[0].keys():
+            loss_dict_merged[loss_dict_key] = sum(d[loss_dict_key] for d in loss_dict_list) / len(loss_dict_list)
+
+        metrics_dict_merged = {}
+        for metrics_dict_key in metrics_dict_list[0].keys():
+            metrics_dict_merged[metrics_dict_key] = sum(d[metrics_dict_key] for d in metrics_dict_list) / len(metrics_dict_list)
         self.train()
-        return model_outputs, loss_dict, metrics_dict
+
+        return model_outputs, loss_dict_merged, metrics_dict_merged
 
     @profiler.time_function
     def get_eval_image_metrics_and_images(self, step: int):
@@ -183,13 +204,23 @@ class MultiscenePipeline(Pipeline):
         """
         self.eval()
         torch.cuda.empty_cache()
-        image_idx, camera_ray_bundle, batch = self.datamanager.next_eval_image(step)
-        outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-        metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
-        assert "image_idx" not in metrics_dict
-        metrics_dict["image_idx"] = image_idx
-        assert "num_rays" not in metrics_dict
-        metrics_dict["num_rays"] = len(camera_ray_bundle)
+        image_idx_list, camera_ray_bundle_list, batch_list = self.datamanager.next_eval_image(step)
+        model_outputs = []
+        metrics_dict_list = []
+        images_dict_list = []
+        for image_idx, camera_ray_bundle, batch in zip(image_idx_list, camera_ray_bundle_list, batch_list):
+
+            outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+            metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
+
+            assert "image_idx" not in metrics_dict
+            metrics_dict["image_idx"] = image_idx
+            assert "num_rays" not in metrics_dict
+            metrics_dict["num_rays"] = len(camera_ray_bundle)
+
+            model_outputs.append(outputs)
+            metrics_dict_list.append(metrics_dict)
+            images_dict_list.append(images_dict)
         self.train()
         return metrics_dict, images_dict
 

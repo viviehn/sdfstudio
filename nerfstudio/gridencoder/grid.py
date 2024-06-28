@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.cuda.amp import custom_bwd, custom_fwd 
+from pdb import set_trace as pause
 
 try:
     import _gridencoder as _backend

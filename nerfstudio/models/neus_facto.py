@@ -315,6 +315,7 @@ class NeuSFactoModel(NeuSModel):
 
     def get_outputs(self, ray_bundle: RayBundle) -> Dict:
         samples_and_field_outputs = self.sample_and_forward_field(ray_bundle=ray_bundle)
+        print(samples_and_field_outputs)
         # pause()
 
         # Shotscuts
@@ -341,12 +342,12 @@ class NeuSFactoModel(NeuSModel):
                 # grad_points = self.field.gradient(eik_points)
                 # outputs.update({"eik_grad": grad_points})
 
-                outputs.update({"field_outputs": field_outputs})
+            outputs.update({"field_outputs": field_outputs})
 
             # TODO
-                if isinstance(ray_bundle, torch.Tensor) or self.multiscene:
-                    if FieldHeadNames.RGB in field_outputs.keys():
-                        outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
+            if isinstance(ray_bundle, torch.Tensor) or self.multiscene:
+                if FieldHeadNames.RGB in field_outputs.keys():
+                    outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
             outputs_list.append(outputs)
 
         if isinstance(ray_bundle, torch.Tensor):
@@ -415,6 +416,7 @@ class NeuSFactoModel(NeuSModel):
 
     #@profiler.time_function
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
+        print(outputs)
         loss_dict = super().get_loss_dict(outputs, batch, metrics_dict)
 
         if self.training and not "sparse_sdf_samples" in batch.keys():
@@ -456,6 +458,8 @@ class NeuSFactoModel(NeuSModel):
 
         return metrics_dict
 
+
+    # TODO: Adapt for multiscene
     def get_image_metrics_and_images(
         self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]
     ) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
@@ -469,3 +473,31 @@ class NeuSFactoModel(NeuSModel):
             images_dict[key] = prop_depth_i
 
         return metrics_dict, images_dict
+
+
+    # TODO: Adapt for multiscene
+    @torch.no_grad()
+    def get_outputs_for_camera_ray_bundle(self, camera_ray_bundle: RayBundle) -> Dict[str, torch.Tensor]:
+        """Takes in camera parameters and computes the output of the model.
+
+        Args:
+            camera_ray_bundle: ray bundle to calculate outputs over
+        """
+        num_rays_per_chunk = self.config.eval_num_rays_per_chunk
+        image_height, image_width = camera_ray_bundle.origins.shape[:2]
+        num_rays = len(camera_ray_bundle)
+        outputs_lists = defaultdict(list)
+        for i in range(0, num_rays, num_rays_per_chunk):
+            start_idx = i
+            end_idx = i + num_rays_per_chunk
+            ray_bundle = camera_ray_bundle.get_row_major_sliced_ray_bundle(start_idx, end_idx)
+            outputs = self.forward(ray_bundle=ray_bundle)
+            for output_name, output in outputs.items():  # type: ignore
+                outputs_lists[output_name].append(output)
+        outputs = {}
+        for output_name, outputs_list in outputs_lists.items():
+            if not torch.is_tensor(outputs_list[0]):
+                # TODO: handle lists of tensors as well
+                continue
+            outputs[output_name] = torch.cat(outputs_list).view(image_height, image_width, -1)  # type: ignore
+        return outputs

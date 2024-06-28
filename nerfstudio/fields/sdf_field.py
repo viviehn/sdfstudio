@@ -235,7 +235,6 @@ class SDFField(Field):
 
         if self.config.encoding_type == "hash":
             # feature encoding
-            # MULTISCENE TODO: hash tables are setup here. need to create a hashtable for each scene
             if self.config.vanilla_ngp:
                 self.encoding, in_dim = get_encoder(  #encoding,
                     "hashgrid",

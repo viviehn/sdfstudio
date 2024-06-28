@@ -433,29 +433,29 @@ class SurfaceModel(Model):
     def get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict:
         loss_dict = {}
         # pause()
-        if "sparse_sdf_samples" not in batch.keys() or not self.training:
+        if "sparse_sdf_samples" not in batch.keys():
         # if "rgb" in outputs or not self.training:
             image = batch["image"].to(self.device)
             loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
-        if self.training:
-
+        if "sparse_sdf_samples" in batch:  # and self.config.sparse_points_sdf_loss_mult > 0.0:
             # sparse sdf sample loss
-            if "sparse_sdf_samples" in batch:  # and self.config.sparse_points_sdf_loss_mult > 0.0:
-                sparse_sdf_samples = batch["sparse_sdf_samples"].to(self.device)
-                # sparse_sdf_samples_sdf = self.field.forward_geonetwork(sparse_sdf_samples[:, :3])[:, 0].contiguous()
-                sparse_sdf_samples_sdf = outputs['field_outputs'][FieldHeadNames.SDF]
-                # pause()
-                # loss_dict["sparse_sdf_samples_loss"] =
-                # mape_loss(sparse_sdf_samples_sdf, sparse_sdf_samples[:, 3:4]) * self.config.sparse_points_sdf_loss_mult
-                loss_dict["sparse_sdf_samples_loss"] = (
-                        torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3].reshape(sparse_sdf_samples_sdf.shape)))\
-                                * self.config.sparse_points_sdf_loss_mult
-                )
-                use_point_color = sparse_sdf_samples.shape[1] > 4
-                if use_point_color:
-                    mask_onsurface = (sparse_sdf_samples[:, 3] == 0) & (sparse_sdf_samples[:, 3:].sum(1) != 0)
-                    color_gt = sparse_sdf_samples[:, 4:7][mask_onsurface]
-                    loss_dict["point_rgb_loss"] = 0.1 * self.rgb_loss(outputs["rgb"], color_gt)
+            sparse_sdf_samples = batch["sparse_sdf_samples"].to(self.device)
+            # sparse_sdf_samples_sdf = self.field.forward_geonetwork(sparse_sdf_samples[:, :3])[:, 0].contiguous()
+            sparse_sdf_samples_sdf = outputs['field_outputs'][FieldHeadNames.SDF]
+            # pause()
+            # loss_dict["sparse_sdf_samples_loss"] =
+            # mape_loss(sparse_sdf_samples_sdf, sparse_sdf_samples[:, 3:4]) * self.config.sparse_points_sdf_loss_mult
+            loss_dict["sparse_sdf_samples_loss"] = (
+                    torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3].reshape(sparse_sdf_samples_sdf.shape)))\
+                            * self.config.sparse_points_sdf_loss_mult
+            )
+            use_point_color = sparse_sdf_samples.shape[1] > 4
+            if use_point_color:
+                mask_onsurface = (sparse_sdf_samples[:, 3] == 0) & (sparse_sdf_samples[:, 3:].sum(1) != 0)
+                color_gt = sparse_sdf_samples[:, 4:7][mask_onsurface]
+                loss_dict["point_rgb_loss"] = 0.1 * self.rgb_loss(outputs["rgb"], color_gt)
+
+        if self.training:
             # eikonal loss
             if "eik_grad" in outputs:
                 grad_theta = outputs["eik_grad"]
