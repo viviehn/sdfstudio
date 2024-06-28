@@ -16,37 +16,47 @@ mkdir -p /scratch/vivienn/outputs/$TMP_STR
 
 OMP_NUM_THREADS=4 ns-train neus-facto-angelo-multi \
     --output-dir /scratch/vivienn/outputs/$TMP_STR \
-    --trainer.max-num-iterations 60101  --trainer.steps_per_save 1000\
-    --trainer.steps-per-eval-image 2000\
+    --trainer.max-num-iterations 4101  --trainer.steps_per_save 1000\
+    --trainer.steps-per-eval-image 100\
+    --trainer.steps-per-eval-batch 100\
+    --trainer.steps-per-eval-all-images 100000\
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
     --pipeline.model.sdf-field.geo-feat-dim 64     \
     --pipeline.model.sdf-field.num-layers-color 2     \
     --pipeline.model.sdf-field.log2-hashmap-size 22\
-    --pipeline.model.sdf-field.hash-features-per-level 2\
+    --pipeline.model.sdf-field.hash-features-per-level 4\
     --pipeline.model.sdf-field.base-res 16\
     --pipeline.model.sdf-field.max-res 2048\
-    --pipeline.model.sdf-field.use-appearance-embedding False\
+    --pipeline.model.enable-progressive-hash-encoding False\
+    --pipeline.model.sdf-field.use-appearance-embedding True\
     --pipeline.model.sdf-field.use-position-encoding True\
     --pipeline.model.sdf-field.vanilla-ngp True\
-    --pipeline.model.sdf-field.geometric-init True\
+    --pipeline.model.sdf-field.geometric-init False\
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False\
     --pipeline.model.sdf-field.use-numerical-gradients False\
     --pipeline.model.background-model none\
     --pipeline.model.sparse_points_sdf_loss_mult 1.0\
+    --pipeline.model.curvature-loss-warmup-steps 2000\
+    --pipeline.model.curvature-loss-multi 0.0\
+    --pipeline.model.eikonal-loss-mult 0.0\
     --pipeline.datamanager.train_num_rays_per_batch 2\
-    --pipeline.datamanager.train_num_images_to_sample_from 1\
+    --pipeline.datamanager.train_num_images_to_sample_from -1\
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
     --pipeline.datamanager.eval_num_images_to_sample_from 1 --vis tensorboard\
     --experiment-name multiscene \
-    --pipeline.datamanager.dataparser.multiscene True \
+    --timestamp $TMP_STR \
+    --logging.local-writer.enable False \
     --pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID1/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID2/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID3/dslr/sdfstudio \
+    --pipeline.datamanager.dataparser.multiscene True \
     --pipeline.datamanager.dataparser.include-sdf-samples True
     #--pipeline.model.curvature-loss-multi 0.0\
     #--pipeline.model.eikonal-loss-mult 0.0\
     #--trainer.load-dir outputs/ngp-best/neus-facto-angelo/2024-02-26_105859/sdfstudio_models \
+    #--pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID1/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID2/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID3/dslr/sdfstudio \
+    #--pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID1/dslr/sdfstudio \
 
 mkdir -p /n/fs/3d-indoor/vivien_sdfstudio_outputs/ngp-sdf-multiscene/$DATA_ID/neus-facto-angelo
-mv /scratch/vivienn/outputs/$TMP_STR/multiscene/neus-facto-angelo/$TMP_STR /n/fs/3d-indoor/vivien_sdfstudio_outputs/ngp-sdf-multiscene/multiscene/neus-facto-angelo
+#mv /scratch/vivienn/outputs/$TMP_STR/multiscene/neus-facto-angelo-multi/$TMP_STR /n/fs/3d-indoor/vivien_sdfstudio_outputs/ngp-sdf-multiscene/multiscene/neus-facto-angelo-multi

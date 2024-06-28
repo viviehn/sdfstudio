@@ -36,6 +36,7 @@ class ExtractMesh:
 
     # Path to config YAML file.
     load_config: Path
+    multiscene: bool = False
     # Marching cube resolution.
     resolution: int = 1024
     # Name of the output file.
@@ -65,38 +66,24 @@ class ExtractMesh:
     use_point_color: bool = False
     """whether save mesh with color"""
 
-    def main(self) -> None:
-        """Main function."""
-        torch.set_float32_matmul_precision(self.torch_precision)
-        assert str(self.output_path)[-4:] == ".ply"
-        self.output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        config, pipeline, _ = eval_setup(self.load_config)
-        data_path = config.pipeline.datamanager.dataparser.data
-        config_is_json = data_path.suffix == '.json'
-        if config_is_json:
-            meta = load_from_json(data_path)
+    def extract_mesh_with_marching_cubes(self, dataset, output_path,encoding):
+        cur_dataset = dataset
+        bounding_box_min = cur_dataset._dataparser_outputs.bbox_min
+        bounding_box_max = cur_dataset._dataparser_outputs.bbox_max
+        print(bounding_box_min, bounding_box_max)
+        if self.multiscene:
+            forward_fn = lambda x: (self.pipeline.model.field.forward_geonetwork(x, encoding))
         else:
-            meta = load_from_json(data_path / "meta_data.json")
-        w2gt = np.array(meta["worldtogt"])
-        #self.bounding_box_min = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_min
-        #self.bounding_box_max = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_max
-        if "785e7504b9" in str(data_path):
-            self.bounding_box_min = (-0.8833908, -0.8145288, -0.28770024) 
-            self.bounding_box_max = (0.88231796, 0.8690518, 0.28507677)
-
-
-        CONSOLE.print("Extract mesh with marching cubes and may take a while")
-
+            forward_fn = lambda x: (self.pipeline.model.field.forward_geonetwork(x))
         if self.create_visibility_mask:
             assert self.resolution % 512 == 0
 
-            coarse_mask = pipeline.get_visibility_mask(
+            coarse_mask = self.pipeline.get_visibility_mask(
                 self.visibility_grid_resolution, self.valid_points_thres, self.sub_sample_factor
             )
 
             def inv_contract(x):
-                mag = torch.linalg.norm(x, ord=pipeline.model.scene_contraction.order, dim=-1)
+                mag = torch.linalg.norm(x, ord=self.pipeline.model.scene_contraction.order, dim=-1)
                 mask = mag >= 1
                 x_new = x.clone()
                 x_new[mask] = (1 / (2 - mag[mask][..., None])) * (x[mask] / mag[mask][..., None])
@@ -111,15 +98,16 @@ class ExtractMesh:
                 save_points("mask.ply", points.cpu().numpy())
                 torch.save(coarse_mask, "coarse_mask.pt")
 
+
             get_surface_sliding_with_contraction(
                 sdf=lambda x: (
-                    pipeline.model.field.forward_geonetwork(x)[:, 0] - self.marching_cube_threshold
+                    forward_fn(x)[:, 0] - self.marching_cube_threshold
                 ).contiguous(),
                 resolution=self.resolution,
-                bounding_box_min=self.bounding_box_min,
-                bounding_box_max=self.bounding_box_max,
+                bounding_box_min=bounding_box_min,
+                bounding_box_max=bounding_box_max,
                 coarse_mask=coarse_mask,
-                output_path=self.output_path,
+                output_path=output_path,
                 simplify_mesh=self.simplify_mesh,
                 inv_contraction=inv_contract,
             )
@@ -129,30 +117,72 @@ class ExtractMesh:
             # for unisurf
             get_surface_occupancy(
                 occupancy_fn=lambda x: torch.sigmoid(
-                    10 * pipeline.model.field.forward_geonetwork(x)[:, 0].contiguous()
+                    10 * forward_fn(x)[:, 0].contiguous()
                 ),
                 resolution=self.resolution,
-                bounding_box_min=self.bounding_box_min,
-                bounding_box_max=self.bounding_box_max,
+                bounding_box_min=bounding_box_min,
+                bounding_box_max=bounding_box_max,
                 level=0.5,
-                device=pipeline.model.device,
-                output_path=self.output_path,
+                device=self.pipeline.model.device,
+                output_path=output_path,
             )
         else:
             assert self.resolution % 512 == 0
             # for sdf we can multi-scale extraction.
+            print("Going to run marching cubes fn")
             get_surface_sliding(
-                sdf=lambda x: pipeline.model.field.forward_geonetwork(x)[:, 0].contiguous(),
+                sdf=lambda x: forward_fn(x)[:, 0].contiguous(),
                 resolution=self.resolution,
-                bounding_box_min=self.bounding_box_min,
-                bounding_box_max=self.bounding_box_max,
-                coarse_mask=pipeline.model.scene_box.coarse_binary_gird,
-                output_path=self.output_path,
+                bounding_box_min=bounding_box_min,
+                bounding_box_max=bounding_box_max,
+                coarse_mask=self.pipeline.model.scene_box.coarse_binary_gird,
+                output_path=output_path,
                 simplify_mesh=self.simplify_mesh,
-                w2gt=w2gt,
+                w2gt=self.w2gt,
                 use_point_color=self.use_point_color,
-                get_color=lambda x: pipeline.model.field.get_outputs(x, need_rgb=True)[FieldHeadNames.RGB],
+                get_color=lambda x: self.pipeline.model.field.get_outputs(x, need_rgb=True)[FieldHeadNames.RGB],
             )
+            print("Done running marching cubes")
+
+    def main(self) -> None:
+        """Main function."""
+        torch.set_float32_matmul_precision(self.torch_precision)
+        assert str(self.output_path)[-4:] == ".ply"
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.config, self.pipeline, _ = eval_setup(self.load_config)
+
+        if self.config.pipeline.datamanager.dataparser.multiscene:
+            self.multiscene = True
+            data_paths_to_load = self.config.pipeline.datamanager.dataparser.multiscene_data
+            datasets_to_load = self.pipeline.datamanager.train_dataset_list
+            encodings = self.pipeline.model.field.encodings_list
+        else:
+            data_paths_to_load = [self.config.pipeline.datamanager.dataparser.data]
+            datasets_to_load = [self.pipeline.datamanager.train_image_dataloader.dataset]
+            encodings = self.pipeline.model.field.encoding
+
+        print('datasets to load', datasets_to_load)
+
+
+        for data_path, dataset, encoding in zip(data_paths_to_load, datasets_to_load, encodings):
+            config_is_json = data_path.suffix == '.json'
+            if config_is_json:
+                self.meta = load_from_json(data_path)
+            else:
+                self.meta = load_from_json(data_path / "meta_data.json")
+            self.w2gt = np.array(self.meta["worldtogt"])
+            if self.multiscene:
+                output_path = f'{str(self.output_path)[:-4]}_{data_path.parts[-3]}.ply'
+            else:
+                output_path = self.output_path
+
+
+            self.extract_mesh_with_marching_cubes(dataset,
+                                             output_path=output_path,
+                                             encoding=encoding)
+
+
 
 
 def entrypoint():
