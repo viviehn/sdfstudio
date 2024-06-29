@@ -17,6 +17,7 @@ class FWLModelConfig(NeuSFactoModelConfig):
 
     _target: Type = field(default_factory=lambda: FWLModel)
     fwl_mult: float = 0.1
+    rgb_mult: float=1.0
     """Focus-weighted loss multiplier"""
 
 
@@ -36,11 +37,11 @@ class FWLModel(NeuSFactoModel):
         unreduced_loss = self.rgb_loss2(image, outputs["rgb"])
         weighted_loss = unreduced_loss * focus_mask
         fwloss = weighted_loss.mean()
-        loss_dict['focus_weighted_loss'] = fwloss
+        loss_dict['focus_weighted_loss'] = fwloss * self.config.fwl_mult
 
         # fwl_mult is actually used on the original rgb loss 
 
         # dont use the original rgb loss
-        loss_dict['rgb_loss'] = loss_dict['rgb_loss'] * self.config.fwl_mult
+        loss_dict['rgb_loss'] = loss_dict['rgb_loss'] * self.config.rgb_mult
 
         return loss_dict

@@ -36,7 +36,7 @@ OMP_NUM_THREADS=4 ns-train $method \
     --pipeline.model.sdf-field.log2-hashmap-size 22\
     --pipeline.model.sdf-field.hash-features-per-level 4\
     --pipeline.model.sdf-field.base-res 16\
-    --pipeline.model.sdf-field.max-res 2048\
+    --pipeline.model.sdf-field.max-res 4096\
     --pipeline.model.enable-progressive-hash-encoding True\
     --pipeline.model.sdf-field.use-appearance-embedding True\
     --pipeline.model.sdf-field.use-position-encoding True\
@@ -45,7 +45,10 @@ OMP_NUM_THREADS=4 ns-train $method \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False \
     --pipeline.model.background-model none\
-    --pipeline.model.fwl_mult .1\
+    --pipeline.model.fwl_mult 0.1\
+    --pipeline.model.rgb_mult 1.0\
+    --optimizers.fields-color.optimizer.lr .0001 \
+    --optimizers.fields-geometry.optimizer.lr .0001 \
     --pipeline.datamanager.train_num_images_to_sample_from $num_images\
     --pipeline.datamanager.train_num_times_to_repeat_images $num_times\
     --pipeline.datamanager.eval_num_images_to_sample_from 8 --vis tensorboard\
