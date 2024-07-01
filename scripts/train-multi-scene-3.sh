@@ -50,7 +50,7 @@ OMP_NUM_THREADS=4 ns-train neus-facto-angelo-multi \
     --experiment-name multiscene \
     --timestamp $TMP_STR \
     --logging.local-writer.enable False \
-    --pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID1/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID2/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID3/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID4/dslr/sdfstudio \
+    --pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID4/dslr/sdfstudio \
     --pipeline.datamanager.dataparser.multiscene True \
     --pipeline.datamanager.dataparser.include-sdf-samples True
     #--pipeline.model.curvature-loss-multi 0.0\

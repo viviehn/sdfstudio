@@ -160,7 +160,7 @@ class ExtractMesh:
         else:
             data_paths_to_load = [self.config.pipeline.datamanager.dataparser.data]
             datasets_to_load = [self.pipeline.datamanager.train_image_dataloader.dataset]
-            encodings = self.pipeline.model.field.encoding
+            encodings = [self.pipeline.model.field.encoding]
 
         print('datasets to load', datasets_to_load)
 
