@@ -6,7 +6,12 @@ hostname
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
 local_outdir=/scratch/vivienn/outputs/$TMP_STR/
 experiment=$1
+<<<<<<< Updated upstream
 data_path=/n/fs/lines/macro_bug/$experiment.json
+=======
+#blur_width=$2
+data_path=/n/fs/lines/macro_bug_crop_zoom/$experiment.json
+>>>>>>> Stashed changes
 method=neus-facto-angelo
 mkdir -p $local_outdir
 
@@ -35,28 +40,33 @@ OMP_NUM_THREADS=4 ns-train $method \
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
     --pipeline.datamanager.eval_num_images_to_sample_from 8 --vis tensorboard\
     --timestamp $TMP_STR \
+<<<<<<< Updated upstream
     --experiment-name macro-bug-1-$experiment     sdfstudio-data \
     --data $data_path
+=======
+    --experiment-name macro-bug-1-crop-zoom-$experiment     sdfstudio-data \
+    --data $data_path \
+>>>>>>> Stashed changes
 
-full_output_path=/scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR
-resolution=2048
-ns-extract-mesh --load-config $full_output_path/config.yml \
-    --resolution $resolution \
-    --output-path $full_output_path/$resolution-mesh.ply \
-    --bounding-box-min -.4 -.4 -.4 \
-    --bounding-box-max .4 .4 .4 \
-    --use-point-color True \
-    --create-visibility-mask True
-
-resolution=8192
-ns-extract-mesh --load-config $full_output_path/config.yml \
-    --resolution $resolution \
-    --output-path $full_output_path/$resolution-mesh.ply \
-    --bounding-box-min -.4 -.4 -.4 \
-    --bounding-box-max .4 .4 .4 \
-    --use-point-color True \
-    --create-visibility-mask True
+#full_output_path=/scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR
+#resolution=2048
+#ns-extract-mesh --load-config $full_output_path/config.yml \
+#    --resolution $resolution \
+#    --output-path $full_output_path/$resolution-mesh.ply \
+#    --bounding-box-min -.4 -.4 -.4 \
+#    --bounding-box-max .4 .4 .4 \
+#    --use-point-color True \
+#    --create-visibility-mask True
+#
+#resolution=8192
+#ns-extract-mesh --load-config $full_output_path/config.yml \
+#    --resolution $resolution \
+#    --output-path $full_output_path/$resolution-mesh.ply \
+#    --bounding-box-min -.4 -.4 -.4 \
+#    --bounding-box-max .4 .4 .4 \
+#    --use-point-color True \
+#    --create-visibility-mask True
 
 # path is /scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR/
-mkdir -p /n/fs/lines/sdfstudio_outputs/miniatures/macro-bug-1-$experiment/$method
-mv /scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR /n/fs/lines/sdfstudio_outputs/miniatures/macro-bug-1-$experiment/$method
+mkdir -p /n/fs/lines/sdfstudio_outputs/miniatures/macro-bug-1-crop-zoom-$experiment/$method
+mv /scratch/vivienn/outputs/$TMP_STR/macro-bug-1-crop-zoom-$experiment/$method/$TMP_STR /n/fs/lines/sdfstudio_outputs/miniatures/macro-bug-1-crop-zoom-$experiment/$method

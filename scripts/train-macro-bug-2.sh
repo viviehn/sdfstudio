@@ -6,6 +6,10 @@ hostname
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
 local_outdir=/scratch/vivienn/outputs/$TMP_STR/
 experiment=$1
+<<<<<<< Updated upstream:scripts/train-macro-bug-2.sh
+=======
+blur_width=49
+>>>>>>> Stashed changes:scripts/train-macro-bug-fwl.sh
 data_path=/n/fs/lines/macro_bug/$experiment.json
 method=neus-facto-angelo
 mkdir -p $local_outdir
@@ -31,31 +35,42 @@ OMP_NUM_THREADS=4 ns-train $method \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False \
     --pipeline.model.background-model none\
+<<<<<<< Updated upstream:scripts/train-macro-bug-2.sh
     --pipeline.datamanager.train_num_images_to_sample_from -1\
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
+=======
+    --pipeline.model.fwl_mult 1.0\
+    --pipeline.model.rgb_mult 1.0\
+    --optimizers.fields-color.optimizer.lr .0001 \
+    --optimizers.fields-geometry.optimizer.lr .001 \
+    --pipeline.datamanager.train_num_images_to_sample_from $num_images\
+    --pipeline.datamanager.train_num_times_to_repeat_images $num_times\
+>>>>>>> Stashed changes:scripts/train-macro-bug-fwl.sh
     --pipeline.datamanager.eval_num_images_to_sample_from 8 --vis tensorboard\
+    --pipeline.model.curvature-loss-warmup-steps 5000 \
+    --pipeline.model.curvature-loss-multi 0.005 \
     --timestamp $TMP_STR \
     --experiment-name macro-bug-1-$experiment     sdfstudio-data \
     --data $data_path
 
-full_output_path=/scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR
-resolution=2048
-ns-extract-mesh --load-config $full_output_path/config.yml \
-    --resolution $resolution \
-    --output-path $full_output_path/$resolution-mesh.ply \
-    --bounding-box-min -.4 -.4 -.4 \
-    --bounding-box-max .4 .4 .4 \
-    --use-point-color True \
-    --create-visibility-mask True
+#full_output_path=/scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR
+#resolution=2048
+#ns-extract-mesh --load-config $full_output_path/config.yml \
+#    --resolution $resolution \
+#    --output-path $full_output_path/$resolution-mesh.ply \
+#    --bounding-box-min -.4 -.4 -.4 \
+#    --bounding-box-max .4 .4 .4 \
+#    --use-point-color True \
+#    --create-visibility-mask True
 
-resolution=8192
-ns-extract-mesh --load-config $full_output_path/config.yml \
-    --resolution $resolution \
-    --output-path $full_output_path/$resolution-mesh.ply \
-    --bounding-box-min -.4 -.4 -.4 \
-    --bounding-box-max .4 .4 .4 \
-    --use-point-color True \
-    --create-visibility-mask True
+#resolution=8192
+#ns-extract-mesh --load-config $full_output_path/config.yml \
+#    --resolution $resolution \
+#    --output-path $full_output_path/$resolution-mesh.ply \
+#    --bounding-box-min -.4 -.4 -.4 \
+#    --bounding-box-max .4 .4 .4 \
+#    --use-point-color True \
+#    --create-visibility-mask True
 
 # path is /scratch/vivienn/outputs/$TMP_STR/macro-bug-1-$experiment/$method/$TMP_STR/
 mkdir -p /n/fs/lines/sdfstudio_outputs/miniatures/macro-bug-1-$experiment/$method
