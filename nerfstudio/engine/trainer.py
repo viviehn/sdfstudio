@@ -200,7 +200,8 @@ class Trainer:
                     writer.put_dict(name="Train Loss Dict", scalar_dict=loss_dict, step=step)
                     writer.put_dict(name="Train Metrics Dict", scalar_dict=metrics_dict, step=step)
 
-                self.eval_iteration(step)
+                if not isinstance(self.pipeline.datamanager, MultisceneDataManager):
+                    self.eval_iteration(step)
 
                 if step_check(step, self.config.trainer.steps_per_save):
                     self.save_checkpoint(step)
@@ -415,6 +416,7 @@ class Trainer:
             step: Current training step.
         """
         # a batch of eval rays
+
         if step_check(step, self.config.trainer.steps_per_eval_batch, run_at_zero=self.config.trainer.sanity_check):
             print('get_eval_loss_dict')
             _, eval_loss_dict, eval_metrics_dict = self.pipeline.get_eval_loss_dict(step=step)

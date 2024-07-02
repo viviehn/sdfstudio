@@ -119,6 +119,7 @@ class MultiscenePipeline(Pipeline):
         # everything else is scene independent (g.t. will also be in the correct order)
         ray_bundle_list, batch_list = self.datamanager.next_train(step)
         model_outputs = self.model(ray_bundle_list)
+        print(len(model_outputs), len(batch_list))
         assert len(model_outputs) == len(batch_list)
         # model_outputs is a list with # corresponding to # of scenes
         metrics_dict_list = []

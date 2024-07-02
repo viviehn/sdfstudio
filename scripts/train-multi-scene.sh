@@ -38,6 +38,7 @@ OMP_NUM_THREADS=4 ns-train neus-facto-angelo-multi \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False\
     --pipeline.model.sdf-field.use-numerical-gradients False\
+    --pipeline.model.sdf-field.num_scenes 4\
     --pipeline.model.background-model none\
     --pipeline.model.sparse_points_sdf_loss_mult 1.0\
     --pipeline.model.curvature-loss-warmup-steps 2000\
