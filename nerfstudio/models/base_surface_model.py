@@ -339,6 +339,12 @@ class SurfaceModel(Model):
                     outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
                 return outputs
 
+        if isinstance(ray_bundle, torch.Tensor):
+            outputs.update(samples_and_field_outputs)
+            if FieldHeadNames.RGB in field_outputs.keys():
+                outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
+            return outputs
+
         ray_samples = samples_and_field_outputs["ray_samples"]
         weights = samples_and_field_outputs["weights"]
 
@@ -454,6 +460,12 @@ class SurfaceModel(Model):
                 mask_onsurface = (sparse_sdf_samples[:, 3] == 0) & (sparse_sdf_samples[:, 3:].sum(1) != 0)
                 color_gt = sparse_sdf_samples[:, 4:7][mask_onsurface]
                 loss_dict["point_rgb_loss"] = 0.1 * self.rgb_loss(outputs["rgb"], color_gt)
+
+        if "prior_encoding" in batch:
+            # VNTODO: add weighting options
+            cur_encodings = outputs['encoding_outputs']
+            source_encodings = batch['prior_encoding']
+            loss_dict['enc_loss'] = self.L1Loss(cur_encodings, source_encodings)
 
         if self.training:
             # eikonal loss

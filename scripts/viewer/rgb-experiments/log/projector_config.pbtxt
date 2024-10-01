@@ -1,0 +1,544 @@
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_05:00000"
+  tensor_path: "00000/210f741378_rgb_only_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_05:00001"
+  tensor_path: "00001/2a496183e1_rgb_on_10_scenes_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_10:00002"
+  tensor_path: "00002/4a1a3a7dc5_rgb_only_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_03:00003"
+  tensor_path: "00003/2a496183e1_rgb_only_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_00:00004"
+  tensor_path: "00004/4a1a3a7dc5_rgb_on_10_scenes_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_05:00005"
+  tensor_path: "00005/210f741378_rgb_on_10_scenes_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings:00006"
+  tensor_path: "00006/bfd3fd54d2_rgb_on_10_scenes_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_11:00007"
+  tensor_path: "00007/210f741378_rgb_only_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_10:00008"
+  tensor_path: "00008/bfd3fd54d2_rgb_on_10_scenes_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_07:00009"
+  tensor_path: "00009/bfd3fd54d2_rgb_only_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_02:00010"
+  tensor_path: "00010/4a1a3a7dc5_rgb_only_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_02:00011"
+  tensor_path: "00011/210f741378_rgb_on_10_scenes_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_12:00012"
+  tensor_path: "00012/210f741378_rgb_only_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_14:00013"
+  tensor_path: "00013/bfd3fd54d2_rgb_on_10_scenes_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_11:00014"
+  tensor_path: "00014/2a496183e1_rgb_on_10_scenes_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings:00015"
+  tensor_path: "00015/2a496183e1_rgb_on_10_scenes_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_13:00016"
+  tensor_path: "00016/210f741378_rgb_only_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_11:00017"
+  tensor_path: "00017/bfd3fd54d2_rgb_only_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings:00018"
+  tensor_path: "00018/210f741378_rgb_only_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_13:00019"
+  tensor_path: "00019/bfd3fd54d2_rgb_on_10_scenes_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_03:00020"
+  tensor_path: "00020/210f741378_rgb_only_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_03:00021"
+  tensor_path: "00021/bfd3fd54d2_rgb_on_10_scenes_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_14:00022"
+  tensor_path: "00022/210f741378_rgb_only_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_07:00023"
+  tensor_path: "00023/2a496183e1_rgb_on_10_scenes_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_09:00024"
+  tensor_path: "00024/4a1a3a7dc5_rgb_on_10_scenes_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_03:00025"
+  tensor_path: "00025/bfd3fd54d2_rgb_only_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_12:00026"
+  tensor_path: "00026/4a1a3a7dc5_rgb_on_10_scenes_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_10:00027"
+  tensor_path: "00027/210f741378_rgb_only_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_13:00028"
+  tensor_path: "00028/4a1a3a7dc5_rgb_only_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_11:00029"
+  tensor_path: "00029/4a1a3a7dc5_rgb_only_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_04:00030"
+  tensor_path: "00030/2a496183e1_rgb_only_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings:00031"
+  tensor_path: "00031/bfd3fd54d2_rgb_only_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_09:00032"
+  tensor_path: "00032/bfd3fd54d2_rgb_on_10_scenes_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_09:00033"
+  tensor_path: "00033/4a1a3a7dc5_rgb_only_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_00:00034"
+  tensor_path: "00034/bfd3fd54d2_rgb_only_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_07:00035"
+  tensor_path: "00035/2a496183e1_rgb_only_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_04:00036"
+  tensor_path: "00036/4a1a3a7dc5_rgb_only_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_05:00037"
+  tensor_path: "00037/2a496183e1_rgb_only_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_03:00038"
+  tensor_path: "00038/2a496183e1_rgb_on_10_scenes_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_14:00039"
+  tensor_path: "00039/2a496183e1_rgb_only_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_02:00040"
+  tensor_path: "00040/2a496183e1_rgb_on_10_scenes_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_07:00041"
+  tensor_path: "00041/210f741378_rgb_only_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_04:00042"
+  tensor_path: "00042/2a496183e1_rgb_on_10_scenes_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_07:00043"
+  tensor_path: "00043/210f741378_rgb_on_10_scenes_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_13:00044"
+  tensor_path: "00044/2a496183e1_rgb_on_10_scenes_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_02:00045"
+  tensor_path: "00045/4a1a3a7dc5_rgb_on_10_scenes_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_13:00046"
+  tensor_path: "00046/2a496183e1_rgb_only_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_02:00047"
+  tensor_path: "00047/bfd3fd54d2_rgb_only_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_07:00048"
+  tensor_path: "00048/4a1a3a7dc5_rgb_on_10_scenes_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_05:00049"
+  tensor_path: "00049/4a1a3a7dc5_rgb_only_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings:00050"
+  tensor_path: "00050/4a1a3a7dc5_rgb_on_10_scenes_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_05:00051"
+  tensor_path: "00051/4a1a3a7dc5_rgb_on_10_scenes_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_04:00052"
+  tensor_path: "00052/210f741378_rgb_on_10_scenes_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_06:00053"
+  tensor_path: "00053/4a1a3a7dc5_rgb_only_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_06:00054"
+  tensor_path: "00054/bfd3fd54d2_rgb_on_10_scenes_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_15:00055"
+  tensor_path: "00055/4a1a3a7dc5_rgb_on_10_scenes_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_06:00056"
+  tensor_path: "00056/210f741378_rgb_only_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_06:00057"
+  tensor_path: "00057/4a1a3a7dc5_rgb_on_10_scenes_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_14:00058"
+  tensor_path: "00058/4a1a3a7dc5_rgb_on_10_scenes_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_00:00059"
+  tensor_path: "00059/4a1a3a7dc5_rgb_only_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_02:00060"
+  tensor_path: "00060/2a496183e1_rgb_only_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_14:00061"
+  tensor_path: "00061/2a496183e1_rgb_on_10_scenes_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_11:00062"
+  tensor_path: "00062/2a496183e1_rgb_only_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_12:00063"
+  tensor_path: "00063/4a1a3a7dc5_rgb_only_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_06:00064"
+  tensor_path: "00064/2a496183e1_rgb_on_10_scenes_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_10:00065"
+  tensor_path: "00065/210f741378_rgb_on_10_scenes_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_03:00066"
+  tensor_path: "00066/4a1a3a7dc5_rgb_on_10_scenes_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_15:00067"
+  tensor_path: "00067/2a496183e1_rgb_only_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_04:00068"
+  tensor_path: "00068/bfd3fd54d2_rgb_only_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_08:00069"
+  tensor_path: "00069/4a1a3a7dc5_rgb_only_encodings_08/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_14:00070"
+  tensor_path: "00070/bfd3fd54d2_rgb_only_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_04:00071"
+  tensor_path: "00071/4a1a3a7dc5_rgb_on_10_scenes_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_01:00072"
+  tensor_path: "00072/4a1a3a7dc5_rgb_only_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_12:00073"
+  tensor_path: "00073/2a496183e1_rgb_only_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_01:00074"
+  tensor_path: "00074/4a1a3a7dc5_rgb_on_10_scenes_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_02:00075"
+  tensor_path: "00075/210f741378_rgb_only_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_14:00076"
+  tensor_path: "00076/4a1a3a7dc5_rgb_only_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_15:00077"
+  tensor_path: "00077/4a1a3a7dc5_rgb_only_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_06:00078"
+  tensor_path: "00078/210f741378_rgb_on_10_scenes_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_10:00079"
+  tensor_path: "00079/2a496183e1_rgb_only_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_00:00080"
+  tensor_path: "00080/bfd3fd54d2_rgb_on_10_scenes_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_08:00081"
+  tensor_path: "00081/4a1a3a7dc5_rgb_on_10_scenes_encodings_08/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_08:00082"
+  tensor_path: "00082/bfd3fd54d2_rgb_on_10_scenes_encodings_08/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_09:00083"
+  tensor_path: "00083/210f741378_rgb_on_10_scenes_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_08:00084"
+  tensor_path: "00084/2a496183e1_rgb_only_encodings_08/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_01:00085"
+  tensor_path: "00085/bfd3fd54d2_rgb_on_10_scenes_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_11:00086"
+  tensor_path: "00086/4a1a3a7dc5_rgb_on_10_scenes_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_12:00087"
+  tensor_path: "00087/2a496183e1_rgb_on_10_scenes_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_09:00088"
+  tensor_path: "00088/2a496183e1_rgb_only_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_02:00089"
+  tensor_path: "00089/bfd3fd54d2_rgb_on_10_scenes_encodings_02/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_10:00090"
+  tensor_path: "00090/4a1a3a7dc5_rgb_on_10_scenes_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_04:00091"
+  tensor_path: "00091/bfd3fd54d2_rgb_on_10_scenes_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_12:00092"
+  tensor_path: "00092/bfd3fd54d2_rgb_on_10_scenes_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_08:00093"
+  tensor_path: "00093/bfd3fd54d2_rgb_only_encodings_08/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings:00094"
+  tensor_path: "00094/4a1a3a7dc5_rgb_only_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_06:00095"
+  tensor_path: "00095/bfd3fd54d2_rgb_only_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_07:00096"
+  tensor_path: "00096/bfd3fd54d2_rgb_on_10_scenes_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_00:00097"
+  tensor_path: "00097/210f741378_rgb_only_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_01:00098"
+  tensor_path: "00098/bfd3fd54d2_rgb_only_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_on_10_scenes_encodings_13:00099"
+  tensor_path: "00099/4a1a3a7dc5_rgb_on_10_scenes_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_01:00100"
+  tensor_path: "00100/2a496183e1_rgb_only_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_13:00101"
+  tensor_path: "00101/bfd3fd54d2_rgb_only_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_01:00102"
+  tensor_path: "00102/210f741378_rgb_on_10_scenes_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_07:00103"
+  tensor_path: "00103/4a1a3a7dc5_rgb_only_encodings_07/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_09:00104"
+  tensor_path: "00104/210f741378_rgb_only_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_05:00105"
+  tensor_path: "00105/bfd3fd54d2_rgb_on_10_scenes_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_01:00106"
+  tensor_path: "00106/210f741378_rgb_only_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_04:00107"
+  tensor_path: "00107/210f741378_rgb_only_encodings_04/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_15:00108"
+  tensor_path: "00108/bfd3fd54d2_rgb_only_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_12:00109"
+  tensor_path: "00109/210f741378_rgb_on_10_scenes_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings:00110"
+  tensor_path: "00110/2a496183e1_rgb_only_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings:00111"
+  tensor_path: "00111/210f741378_rgb_on_10_scenes_encodings/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_15:00112"
+  tensor_path: "00112/210f741378_rgb_on_10_scenes_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_11:00113"
+  tensor_path: "00113/bfd3fd54d2_rgb_on_10_scenes_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_10:00114"
+  tensor_path: "00114/2a496183e1_rgb_on_10_scenes_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_00:00115"
+  tensor_path: "00115/2a496183e1_rgb_only_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_15:00116"
+  tensor_path: "00116/210f741378_rgb_only_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_09:00117"
+  tensor_path: "00117/bfd3fd54d2_rgb_only_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_10:00118"
+  tensor_path: "00118/bfd3fd54d2_rgb_only_encodings_10/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_15:00119"
+  tensor_path: "00119/2a496183e1_rgb_on_10_scenes_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_09:00120"
+  tensor_path: "00120/2a496183e1_rgb_on_10_scenes_encodings_09/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_only_encodings_06:00121"
+  tensor_path: "00121/2a496183e1_rgb_only_encodings_06/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_08:00122"
+  tensor_path: "00122/210f741378_rgb_on_10_scenes_encodings_08/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_00:00123"
+  tensor_path: "00123/210f741378_rgb_on_10_scenes_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_05:00124"
+  tensor_path: "00124/bfd3fd54d2_rgb_only_encodings_05/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_on_10_scenes_encodings_15:00125"
+  tensor_path: "00125/bfd3fd54d2_rgb_on_10_scenes_encodings_15/tensors.tsv"
+}
+embeddings {
+  tensor_name: "4a1a3a7dc5_rgb_only_encodings_03:00126"
+  tensor_path: "00126/4a1a3a7dc5_rgb_only_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "bfd3fd54d2_rgb_only_encodings_12:00127"
+  tensor_path: "00127/bfd3fd54d2_rgb_only_encodings_12/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_13:00128"
+  tensor_path: "00128/210f741378_rgb_on_10_scenes_encodings_13/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_01:00129"
+  tensor_path: "00129/2a496183e1_rgb_on_10_scenes_encodings_01/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_08:00130"
+  tensor_path: "00130/2a496183e1_rgb_on_10_scenes_encodings_08/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_11:00131"
+  tensor_path: "00131/210f741378_rgb_on_10_scenes_encodings_11/tensors.tsv"
+}
+embeddings {
+  tensor_name: "2a496183e1_rgb_on_10_scenes_encodings_00:00132"
+  tensor_path: "00132/2a496183e1_rgb_on_10_scenes_encodings_00/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_14:00133"
+  tensor_path: "00133/210f741378_rgb_on_10_scenes_encodings_14/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_on_10_scenes_encodings_03:00134"
+  tensor_path: "00134/210f741378_rgb_on_10_scenes_encodings_03/tensors.tsv"
+}
+embeddings {
+  tensor_name: "210f741378_rgb_only_encodings_08:00135"
+  tensor_path: "00135/210f741378_rgb_only_encodings_08/tensors.tsv"
+}

@@ -5,22 +5,24 @@ echo $CUDA_VISIBLE_DEVICES
 nvidia-smi
 
 DATA_ID=$1
-EXP_NAME=ngp-sdf-baseline
+EXP_NAME=sdf-single-very-small-hashmap-size
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
 LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
 MODEL_NAME=neus-facto-angelo
-mkdir -p /scratch/vivienn/outputs/$TMP_STR
+mkdir -p $LOCAL_OUTDIR
 
 ns-train $MODEL_NAME \
     --output-dir $LOCAL_OUTDIR\
-    --trainer.max-num-iterations 6001  --trainer.steps_per_save 1000\
-    --trainer.steps-per-eval-image 2000\
+    --trainer.max-num-iterations 100001  --trainer.steps_per_save 2000\
+    --trainer.steps-per-eval-image 1000\
+    --trainer.steps-per-eval-batch 1000\
+    --viewer.ip-address 0.0.0.0 --viewer.websocket-port 12701 \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
     --pipeline.model.sdf-field.geo-feat-dim 64     \
     --pipeline.model.sdf-field.num-layers-color 2     \
-    --pipeline.model.sdf-field.log2-hashmap-size 22\
+    --pipeline.model.sdf-field.log2-hashmap-size 8\
     --pipeline.model.sdf-field.hash-features-per-level 4\
     --pipeline.model.sdf-field.base-res 16\
     --pipeline.model.sdf-field.max-res 2048\
@@ -32,10 +34,10 @@ ns-train $MODEL_NAME \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False\
     --pipeline.model.sdf-field.use-numerical-gradients False\
-    --pipeline.model.sdf-field.fields-geometry.optimizer.lr .0001 \
-    --pipeline.model.sdf-field.fields-geometry.optimizer.betas 0.9 0.99 \
-    --pipeline.model.sdf-field.fields-geometry.scheduler.warm-up-end 0 \
-    --pipeline.model.sdf-field.fields-geometry.scheduler.milestones 3660 \
+    --optimizers.fields-geometry.optimizer.lr .0001 \
+    --optimizers.fields-geometry.optimizer.betas 0.9 0.99\
+    --optimizers.fields-geometry.scheduler.warm-up-end 0 \
+    --optimizers.fields-geometry.scheduler.milestones 3660 \
     --pipeline.model.background-model none\
     --pipeline.model.sparse_points_sdf_loss_mult 1.0\
     --pipeline.model.curvature-loss-warmup-steps 2000\
@@ -46,17 +48,17 @@ ns-train $MODEL_NAME \
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
     --pipeline.datamanager.eval_num_images_to_sample_from 1 --vis tensorboard\
     --timestamp $TMP_STR \
-    --experiment-name $DATA_ID     sdfstudio-data \
+    --experiment-name $DATA_ID sdfstudio-data \
     --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio \
-    --include_sdf_samples True\
+    --include-sdf-samples True \
 
-FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$method/$TMP_STR
+FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$MODEL_NAME/$TMP_STR
 RESOLUTION=1024
 ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
     --resolution $RESOLUTION\
     --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
-    --use-point-color True \
 
-FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/$EXP_NAME/$DATA_ID/$MODEL_NAME
+FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/hashmap_experiments/$EXP_NAME/$DATA_ID/$MODEL_NAME
+#FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/ngp-sdf-baseline/$DATA_ID/$MODEL_NAME
 mkdir -p $FINAL_PATH
-mv /scratch/vivienn/outputs/$TMP_STR/$DATA_ID/neus-facto-angelo/$TMP_STR $FINAL_PATH
+mv $FULL_OUTPUT_PATH $FINAL_PATH

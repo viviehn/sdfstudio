@@ -67,6 +67,7 @@ from nerfstudio.models.neuralreconW import NeuralReconWModelConfig
 from nerfstudio.models.neus import NeuSModelConfig
 from nerfstudio.models.neus_acc import NeuSAccModelConfig
 from nerfstudio.models.neus_facto import NeuSFactoModelConfig
+from nerfstudio.models.neus_facto_multi import NeuSFactoMultiModelConfig
 from nerfstudio.models.semantic_nerfw import SemanticNerfWModelConfig
 from nerfstudio.models.tensorf import TensoRFModelConfig
 from nerfstudio.models.unisurf import UniSurfModelConfig
@@ -1221,8 +1222,7 @@ method_configs["neus-facto-angelo-multi"] = Config(
                 mode="off", optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2)
             ),
         ),
-        model=NeuSFactoModelConfig(
-            multiscene=True,
+        model=NeuSFactoMultiModelConfig(
             near_plane=0.01,
             far_plane=1000.0,
             overwrite_near_far_plane=True,

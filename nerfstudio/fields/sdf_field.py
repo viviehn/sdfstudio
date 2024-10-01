@@ -279,6 +279,20 @@ class SDFField(Field):
             print("using tensor vm")
             self.encoding = TensorVMEncoding(128, 24, smoothstep=smoothstep)
 
+        '''
+        if self.config.alt_encoder:
+            self.alt_encoding, in_dim = get_encoder(  #encoding,
+                "hashgrid",
+                input_dim=3, 
+                multires=6, 
+                degree=4,
+                num_levels=self.num_levels, level_dim=self.features_per_level, 
+                base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
+                desired_resolution=self.max_res, 
+                align_corners=False,
+                )
+        '''
+
         # we concat inputs position ourselves
         self.position_encoding = NeRFEncoding(
             in_dim=3,
@@ -449,6 +463,8 @@ class SDFField(Field):
             inputs = feature.float()
 
         x = inputs
+
+        # Pass hash features through geo mlp
 
         for l in range(0, self.num_layers - 1):
             lin = getattr(self, "glin" + str(l))
@@ -680,11 +696,25 @@ class SDFField(Field):
             # compute gradient in constracted space
             inputs.requires_grad_(True)
             with torch.enable_grad():
+                '''
+                if supervise_encodings:
+                    # VNTODO
+                    # we want to return both prior encodings and current encodings
+                    # call self.forward_genetwork with a special flag)
+                    # call self.alt_encoder to get old encodings
+                    alt_encodings = self.alt_encoding(positions)
+                '''
                 h = self.forward_geonetwork(inputs)
                 sdf, geo_feature = torch.split(h, [1, self.config.geo_feat_dim], dim=-1)
             outputs = {
                     FieldHeadNames.SDF: sdf,
                 }
+            '''
+            if supervise_encodings:
+                outputs['encoding_outputs'] = enc_out
+                outputs['prior_encoding'] = prior_enc
+            '''
+
 
             # if self.config.curvature_loss_multi== 0.0:
             # if True: #self.config.eikonal_loss_mult == 0.0 and 

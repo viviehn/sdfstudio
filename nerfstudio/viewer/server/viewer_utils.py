@@ -320,7 +320,7 @@ class ViewerState:
         """Check to see if the camera path export button was pressed."""
         # check if we should interrupt from a button press?
         camera_path_payload = self.vis["camera_path_payload"].read()
-        if camera_path_payload:
+        if camera_path_payload and trainer is not None:
             # save a model checkpoint
             trainer.save_checkpoint(step)
             # write to json file
@@ -592,12 +592,15 @@ class ViewerState:
 
         aspect_ratio = camera_object["aspect"]
 
+        image_height = self.max_resolution
+        '''
         if not self.camera_moving and not is_training:
             image_height = self.max_resolution
         else:
             image_height = (num_vis_rays / aspect_ratio) ** 0.5
             image_height = int(round(image_height, -1))
             image_height = min(self.max_resolution, image_height)
+        '''
         image_width = int(image_height * aspect_ratio)
         if image_width > self.max_resolution:
             image_width = self.max_resolution

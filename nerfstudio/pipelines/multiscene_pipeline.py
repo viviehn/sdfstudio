@@ -31,10 +31,12 @@ from nerfstudio.data.datamanagers.base_datamanager import (
 from nerfstudio.data.datamanagers.multiscene_datamanager import MultisceneDataManager, MultisceneDataManagerConfig
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.models.base_model import Model, ModelConfig
-from nerfstudio.pipelines.base_pipeline import Pipeline, VanillaPipelineConfig
+from nerfstudio.models.neus_facto_multi import NeuSFactoMultiModel, NeuSFactoMultiModelConfig
+from nerfstudio.pipelines.base_pipeline import Pipeline, VanillaPipeline, VanillaPipelineConfig
 from nerfstudio.utils import profiler
 from nerfstudio.utils.images import BasicImages
 from pdb import set_trace as pause
+import random
 
 @dataclass
 class MultiscenePipelineConfig(VanillaPipelineConfig):
@@ -44,11 +46,11 @@ class MultiscenePipelineConfig(VanillaPipelineConfig):
     """target class to instantiate"""
     datamanager: MultisceneDataManagerConfig = MultisceneDataManagerConfig()
     """specifies the datamanager config"""
-    model: ModelConfig = ModelConfig()
+    model: NeuSFactoMultiModelConfig = NeuSFactoMultiModelConfig()
     """specifies the model config"""
 
 
-class MultiscenePipeline(Pipeline):
+class MultiscenePipeline(VanillaPipeline):
     """The pipeline class for the vanilla nerf setup of multiple cameras for one or a few scenes.
 
         config: configuration to instantiate pipeline
@@ -73,7 +75,7 @@ class MultiscenePipeline(Pipeline):
         world_size: int = 1,
         local_rank: int = 0,
     ):
-        super().__init__()
+        super().__init__(config=config, device=device)
         self.config = config
         self.test_mode = test_mode
         self.datamanager: MultisceneDataManager = config.datamanager.setup(
@@ -114,34 +116,45 @@ class MultiscenePipeline(Pipeline):
             step: current iteration step to update sampler if using DDP (distributed)
         """
         # pause()
-        # MULTISCENE TODO: I think everything here can stay the same, calling forward model 
-        # will handle all the stuff with outputting things from the correct scene.
-        # everything else is scene independent (g.t. will also be in the correct order)
+
+        # Multiscene Datamanager returns a list of ray_bundles and batches
         ray_bundle_list, batch_list = self.datamanager.next_train(step)
-        model_outputs = self.model(ray_bundle_list)
-        print(len(model_outputs), len(batch_list))
-        assert len(model_outputs) == len(batch_list)
-        # model_outputs is a list with # corresponding to # of scenes
+
+        # Forward model takes one scene at a time
+
         metrics_dict_list = []
-        for model_output, batch in zip(model_outputs, batch_list):
-            metrics_dict = self.model.get_metrics_dict(model_output, batch)
-            metrics_dict_list.append(metrics_dict)
-
-        camera_opt_param_group = self.config.datamanager.camera_optimizer.param_group
-        if camera_opt_param_group in self.datamanager.get_param_groups():
-            # Report the camera optimization metrics
-            metrics_dict["camera_opt_translation"] = (
-                self.datamanager.get_param_groups()[camera_opt_param_group][0].data[:, :3].norm()
-            )
-            metrics_dict["camera_opt_rotation"] = (
-                self.datamanager.get_param_groups()[camera_opt_param_group][0].data[:, 3:].norm()
-            )
-
         loss_dict_list = []
-        for model_output, batch, metrics_dict in zip(model_outputs, batch_list, metrics_dict_list):
+        model_outputs = []
+
+        '''
+        for enc in self.model.field.encodings_list:
+            enc.embeddings.requires_grad = False
+        '''
+
+        sampled_scene_ids = random.sample(range(self.datamanager.num_scenes), min(self.datamanager.num_scenes,5))
+        for scene_id in sampled_scene_ids:
+            ray_bundle = ray_bundle_list[scene_id]
+            batch = batch_list[scene_id]
+            model_output = self.model(ray_bundle, scene_id)
+            metrics_dict = self.model.get_metrics_dict(model_output, batch)
+            camera_opt_param_group = self.config.datamanager.camera_optimizer.param_group
+            if camera_opt_param_group in self.datamanager.get_param_groups():
+                # Report the camera optimization metrics
+                metrics_dict["camera_opt_translation"] = (
+                    self.datamanager.get_param_groups()[camera_opt_param_group][0].data[:, :3].norm()
+                )
+                metrics_dict["camera_opt_rotation"] = (
+                    self.datamanager.get_param_groups()[camera_opt_param_group][0].data[:, 3:].norm()
+                )
+            metrics_dict_list.append(metrics_dict)
             loss_dict = self.model.get_loss_dict(model_output, batch, metrics_dict)
             loss_dict_list.append(loss_dict)
+            model_outputs.append(model_output)
 
+
+        assert len(sampled_scene_ids) == len(loss_dict_list)
+
+        # Average losses and metrics over scenes
         loss_dict_merged = {}
         for loss_dict_key in loss_dict_list[0].keys():
             loss_dict_merged[loss_dict_key] = sum(d[loss_dict_key] for d in loss_dict_list) / len(loss_dict_list)
@@ -160,7 +173,7 @@ class MultiscenePipeline(Pipeline):
         raise NotImplementedError
 
     @profiler.time_function
-    def get_eval_loss_dict(self, step: int):
+    def get_eval_loss_dict(self, step: int, sampled_scene_ids: list) -> Tuple[List[Dict], Dict, Dict]:
         """This function gets your evaluation loss dict. It needs to get the data
         from the DataManager and feed it to the model's forward function
 
@@ -169,18 +182,17 @@ class MultiscenePipeline(Pipeline):
         """
         self.eval()
         ray_bundle_list, batch_list = self.datamanager.next_eval(step)
-        model_outputs = self.model(ray_bundle_list)
-        print(model_outputs)
-        assert len(model_outputs) == len(batch_list)
 
         metrics_dict_list = []
-        for model_output, batch in zip(model_outputs, batch_list):
+        loss_dict_list = []
+        model_outputs = []
+        for scene_id in sampled_scene_ids:
+            ray_bundle = ray_bundle_list[scene_id]
+            batch = batch_list[scene_id]
+            model_output = self.model(ray_bundle, scene_id)
+            model_outputs.append(model_output)
             metrics_dict = self.model.get_metrics_dict(model_output, batch)
             metrics_dict_list.append(metrics_dict)
-
-        loss_dict_list = []
-        for model_output, batch, metrics_dict in zip(model_outputs, batch_list, metrics_dict_list):
-            print(model_output)
             loss_dict = self.model.get_loss_dict(model_output, batch, metrics_dict)
             loss_dict_list.append(loss_dict)
 
@@ -193,10 +205,11 @@ class MultiscenePipeline(Pipeline):
             metrics_dict_merged[metrics_dict_key] = sum(d[metrics_dict_key] for d in metrics_dict_list) / len(metrics_dict_list)
         self.train()
 
+        # Returns dicts with per-scene keys [e.g. for directly logging to tensorboard]
         return model_outputs, loss_dict_merged, metrics_dict_merged
 
     @profiler.time_function
-    def get_eval_image_metrics_and_images(self, step: int):
+    def get_eval_image_metrics_and_images(self, step: int, sampled_scene_ids: list):
         """This function gets your evaluation loss dict. It needs to get the data
         from the DataManager and feed it to the model's forward function
 
@@ -209,11 +222,13 @@ class MultiscenePipeline(Pipeline):
         model_outputs = []
         metrics_dict_list = []
         images_dict_list = []
-        for image_idx, camera_ray_bundle, batch in zip(image_idx_list, camera_ray_bundle_list, batch_list):
-
-            outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+        for scene_id in sampled_scene_ids:
+            print(scene_id)
+            camera_ray_bundle = camera_ray_bundle_list[scene_id]
+            batch = batch_list[scene_id]
+            image_idx = image_idx_list[scene_id]
+            outputs =  self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle, scene_id=scene_id)
             metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
-
             assert "image_idx" not in metrics_dict
             metrics_dict["image_idx"] = image_idx
             assert "num_rays" not in metrics_dict
@@ -223,7 +238,15 @@ class MultiscenePipeline(Pipeline):
             metrics_dict_list.append(metrics_dict)
             images_dict_list.append(images_dict)
         self.train()
-        return metrics_dict, images_dict
+        mega_metrics_dict = {}
+        mega_images_dict = {}
+        for idx, i in enumerate(sampled_scene_ids):
+            for k, v in images_dict_list[idx].items():
+                new_k = f'{k}_{i}'
+                mega_images_dict[new_k] = v
+        for k, v in metrics_dict_list[0].items():
+            mega_metrics_dict[k] = sum(d[k] for d in metrics_dict_list) / len(metrics_dict_list)
+        return mega_metrics_dict, mega_images_dict
 
     @profiler.time_function
     def get_average_eval_image_metrics(self, step: Optional[int] = None):
@@ -274,6 +297,8 @@ class MultiscenePipeline(Pipeline):
             )
         self.train()
         return metrics_dict, images_dict_list
+
+    '''
 
     @profiler.time_function
     def get_visibility_mask(
@@ -330,6 +355,7 @@ class MultiscenePipeline(Pipeline):
 
         self.train()
         return coarse_mask
+    '''
 
     def load_pipeline(self, loaded_state: Dict[str, Any]) -> None:
         """Load the checkpoint from the given path
@@ -339,36 +365,19 @@ class MultiscenePipeline(Pipeline):
         """
         state = {key.replace("module.", ""): value for key, value in loaded_state.items()}
         if self.test_mode == 'val' and state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
+            # need to pop off ALL encodings
             state.pop("_model.field.embedding_appearance.embedding.weight")
             state.pop("_model.field.encoding.embeddings")
             state.pop("_model.field.encoding.offsets")
+            #TODO: handle _model.field.encodings
         if self.test_mode == "inference":
             state.pop("datamanager.train_camera_optimizer.pose_adjustment", None)
             state.pop("datamanager.train_ray_generator.image_coords", None)
             state.pop("datamanager.train_ray_generator.pose_optimizer.pose_adjustment", None)
             state.pop("datamanager.eval_ray_generator.image_coords", None)
             state.pop("datamanager.eval_ray_generator.pose_optimizer.pose_adjustment", None)
-        
+
         missing, unexpected = self.load_state_dict(state, strict=False)  # type: ignore
         print(f"Missing: {missing}")
         print(f"Unexpected: {unexpected}")
 
-    def get_training_callbacks(
-        self, training_callback_attributes: TrainingCallbackAttributes
-    ) -> List[TrainingCallback]:
-        """Returns the training callbacks from both the Dataloader and the Model."""
-        datamanager_callbacks = self.datamanager.get_training_callbacks(training_callback_attributes)
-        model_callbacks = self.model.get_training_callbacks(training_callback_attributes)
-        callbacks = datamanager_callbacks + model_callbacks
-        return callbacks
-
-    def get_param_groups(self) -> Dict[str, List[Parameter]]:
-        """Get the param groups for the pipeline.
-
-        Returns:
-            A list of dictionaries containing the pipeline's param groups.
-        """
-        datamanager_params = self.datamanager.get_param_groups()
-        model_params = self.model.get_param_groups()
-        # TODO(ethan): assert that key names don't overlap
-        return {**datamanager_params, **model_params}

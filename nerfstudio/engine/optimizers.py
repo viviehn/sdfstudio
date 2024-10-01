@@ -132,7 +132,7 @@ class Optimizers:
     def zero_grad_all(self) -> None:
         """Zero the gradients for all optimizer parameters."""
         for _, optimizer in self.optimizers.items():
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
 
     def optimizer_scaler_step_all(self, grad_scaler: GradScaler) -> None:
         """Take an optimizer step using a grad scaler.

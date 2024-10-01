@@ -29,6 +29,7 @@ from typing_extensions import Literal
 
 from nerfstudio.configs import base_config as cfg
 from nerfstudio.pipelines.base_pipeline import Pipeline
+from pdb import set_trace as pause
 
 CONSOLE = Console(width=120)
 
@@ -46,6 +47,7 @@ def eval_load_checkpoint(config: cfg.TrainerConfig, pipeline: Pipeline) -> Path:
         CONSOLE.print("Loading latest checkpoint from load_dir")
         # NOTE: this is specific to the checkpoint name format
         if not os.path.exists(config.load_dir):
+            # otherwise:
             CONSOLE.rule("Error", style="red")
             CONSOLE.print(f"No checkpoint directory found at {config.load_dir}, ", justify="center")
             CONSOLE.print(
@@ -93,6 +95,8 @@ def eval_setup(
     # load checkpoints from wherever they were saved
     # TODO: expose the ability to choose an arbitrary checkpoint
     config.trainer.load_dir = config.get_checkpoint_dir()
+    if not os.path.exists(config.trainer.load_dir):
+        config.trainer.load_dir = config_path.parents[0] / config.trainer.relative_model_dir
     config.pipeline.datamanager.eval_image_indices = None
 
     # setup pipeline (which includes the DataManager)

@@ -5,7 +5,7 @@ echo $CUDA_VISIBLE_DEVICES
 nvidia-smi
 
 DATA_ID=$1
-EXP_NAME=nfa-baseline
+EXP_NAME=rgb-only
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
 LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
 MODEL_NAME=neus-facto-angelo
@@ -14,7 +14,9 @@ mkdir -p $LOCAL_OUTDIR
 
 OMP_NUM_THREADS=4 ns-train $MODEL_NAME \
     --trainer.max-num-iterations 200001  --trainer.steps_per_save 10000\
+    --trainer.steps-per-eval-batch 1000 --trainer.steps-per-eval-image 1000 \
     --output-dir $LOCAL_OUTDIR \
+    --viewer.websocket-port 11270 \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
@@ -39,13 +41,13 @@ OMP_NUM_THREADS=4 ns-train $MODEL_NAME \
     --experiment-name $DATA_ID     sdfstudio-data \
     --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio
 
-FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$method/$TMP_STR
+FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$MODEL_NAME/$TMP_STR
 RESOLUTION=1024
 ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
     --resolution $RESOLUTION\
     --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
-    --use-point-color True \
+    --use-point-color True
 
-FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/$EXP_NAME/$DATA_ID/$MODEL_NAME
+FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/multiscene/$EXP_NAME/$DATA_ID/$MODEL_NAME
 mkdir -p $FINAL_PATH
-mv /scratch/vivienn/outputs/$TMP_STR/$DATA_ID/neus-facto-angelo/$TMP_STR $FINAL_PATH
+mv $FULL_OUTPUT_PATH $FINAL_PATH

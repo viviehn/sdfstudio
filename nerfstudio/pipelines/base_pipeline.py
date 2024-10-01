@@ -144,7 +144,11 @@ class Pipeline(nn.Module):
         if self.world_size > 1:
             assert self.datamanager.eval_sampler is not None
             self.datamanager.eval_sampler.set_epoch(step)
-        ray_bundle, batch = self.datamanager.next_eval(step)
+        if self.datamanager.config.dataparser.include_sdf_samples:
+            ray_bundle = None
+            batch = self.datamanager
+        else:
+            ray_bundle, batch = self.datamanager.next_eval(step)
         model_outputs = self.model(ray_bundle, batch)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
@@ -196,6 +200,8 @@ class VanillaPipelineConfig(cfg.InstantiateConfig):
     """specifies the datamanager config"""
     model: ModelConfig = ModelConfig()
     """specifies the model config"""
+    pop_sdf_pretrain: bool = False
+    fix_hashmap: bool = False
 
 
 class VanillaPipeline(Pipeline):
@@ -436,16 +442,35 @@ class VanillaPipeline(Pipeline):
             loaded_state: pre-trained model state dict
         """
         state = {key.replace("module.", ""): value for key, value in loaded_state.items()}
-        if self.test_mode == 'val' and state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
+
+
+
+
+        # here for 
+        #state.pop("_model.field.embedding_appearance.embedding.weight")
+        if self.config.pop_sdf_pretrain:
+            print('Clearing hashmap, will train from scratch')
             state.pop("_model.field.embedding_appearance.embedding.weight")
-            state.pop("_model.field.encoding.embeddings")
-            state.pop("_model.field.encoding.offsets")
-        if self.test_mode == "inference":
-            state.pop("datamanager.train_camera_optimizer.pose_adjustment", None)
-            state.pop("datamanager.train_ray_generator.image_coords", None)
-            state.pop("datamanager.train_ray_generator.pose_optimizer.pose_adjustment", None)
-            state.pop("datamanager.eval_ray_generator.image_coords", None)
-            state.pop("datamanager.eval_ray_generator.pose_optimizer.pose_adjustment", None)
+            keys_to_pop = []
+            for key, value in state.items():
+                if 'encodings_list' in key:
+                    keys_to_pop.append(key)
+            for key in keys_to_pop:
+                state.pop(key)
+        else:
+            if self.test_mode == 'val' and state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
+                print('test_mode val')
+                state.pop("_model.field.embedding_appearance.embedding.weight")
+                state.pop("_model.field.encoding.embeddings")
+                state.pop("_model.field.encoding.offsets")
+            if self.test_mode == "inference":
+                print('inference')
+                state.pop("_model.field.embedding_appearance.embedding.weight")
+                state.pop("datamanager.train_camera_optimizer.pose_adjustment", None)
+                state.pop("datamanager.train_ray_generator.image_coords", None)
+                state.pop("datamanager.train_ray_generator.pose_optimizer.pose_adjustment", None)
+                state.pop("datamanager.eval_ray_generator.image_coords", None)
+                state.pop("datamanager.eval_ray_generator.pose_optimizer.pose_adjustment", None)
         
         missing, unexpected = self.load_state_dict(state, strict=False)  # type: ignore
         print(f"Missing: {missing}")

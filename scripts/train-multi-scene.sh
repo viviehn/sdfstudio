@@ -1,26 +1,36 @@
 #!/bin/bash
-#!/bin/bash
 
 hostname
 echo $CUDA_VISIBLE_DEVICES
 nvidia-smi
 
-DATA_ID1=785e7504b9
-DATA_ID2=0e75f3c4d9
-DATA_ID3=c49a8c6cff
-DATA_ID4=0a7cc12c0e
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
-#mkdir -p /home/vivienn/outputs/$TMP_STR/$DATA_ID
-#mkdir -p /scratch/vivienn/local_input
-mkdir -p /scratch/vivienn/outputs/$TMP_STR
+MODEL_NAME=neus-facto-angelo-multi
+LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
+EXP_NAME=5-scenes
+mkdir -p $LOCAL_OUTDIR
 
+#config=/n/fs/3d-indoor/vivien_data/data/scenes.txt
+config=/n/fs/3d-indoor/data/002_scenes.txt
+readarray -t DATA_IDS < $config
 
-OMP_NUM_THREADS=4 ns-train neus-facto-angelo-multi \
-    --output-dir /scratch/vivienn/outputs/$TMP_STR \
-    --trainer.max-num-iterations 20101  --trainer.steps_per_save 5000\
+LIST_OF_SCENES=""
+
+for data_id in "${DATA_IDS[@]}";
+do
+    echo $data_id
+    LIST_OF_SCENES+=" /n/fs/3d-indoor/data/$data_id/dslr/sdfstudio"
+done
+
+echo $LIST_OF_SCENES
+
+ns-train $MODEL_NAME \
+    --output-dir $LOCAL_OUTDIR\
+    --trainer.max-num-iterations 10001  --trainer.steps_per_save 2000\
     --trainer.steps-per-eval-image 1000\
     --trainer.steps-per-eval-batch 1000\
     --trainer.steps-per-eval-all-images 100000\
+    --logging.steps-per-log 100\
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
@@ -38,7 +48,11 @@ OMP_NUM_THREADS=4 ns-train neus-facto-angelo-multi \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False\
     --pipeline.model.sdf-field.use-numerical-gradients False\
-    --pipeline.model.sdf-field.num_scenes 4\
+    --pipeline.model.sdf-field.num-scenes 2\
+    --optimizers.fields-geometry.optimizer.lr .0001 \
+    --optimizers.fields-geometry.optimizer.betas 0.9 0.99\
+    --optimizers.fields-geometry.scheduler.warm-up-end 0 \
+    --optimizers.fields-geometry.scheduler.milestones 3660 \
     --pipeline.model.background-model none\
     --pipeline.model.sparse_points_sdf_loss_mult 1.0\
     --pipeline.model.curvature-loss-warmup-steps 2000\
@@ -48,17 +62,19 @@ OMP_NUM_THREADS=4 ns-train neus-facto-angelo-multi \
     --pipeline.datamanager.train_num_images_to_sample_from -1\
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
     --pipeline.datamanager.eval_num_images_to_sample_from 1 --vis tensorboard\
-    --experiment-name multiscene \
+    --experiment-name $EXP_NAME\
     --timestamp $TMP_STR \
-    --logging.local-writer.enable False \
-    --pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID1/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID2/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID3/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID4/dslr/sdfstudio \
+    --pipeline.datamanager.dataparser.multiscene-data $LIST_OF_SCENES \
     --pipeline.datamanager.dataparser.multiscene True \
-    --pipeline.datamanager.dataparser.include-sdf-samples True
-    #--pipeline.model.curvature-loss-multi 0.0\
-    #--pipeline.model.eikonal-loss-mult 0.0\
-    #--trainer.load-dir outputs/ngp-best/neus-facto-angelo/2024-02-26_105859/sdfstudio_models \
-    #--pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID1/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID2/dslr/sdfstudio /n/fs/3d-indoor/vivien_data/data/$DATA_ID3/dslr/sdfstudio \
-    #--pipeline.datamanager.dataparser.multiscene-data /n/fs/3d-indoor/vivien_data/data/$DATA_ID1/dslr/sdfstudio \
+    --pipeline.datamanager.dataparser.include-sdf-samples True \
 
-mkdir -p /n/fs/3d-indoor/vivien_sdfstudio_outputs/ngp-sdf-multiscene/$DATA_ID/neus-facto-angelo
-#mv /scratch/vivienn/outputs/$TMP_STR/multiscene/neus-facto-angelo-multi/$TMP_STR /n/fs/3d-indoor/vivien_sdfstudio_outputs/ngp-sdf-multiscene/multiscene/neus-facto-angelo-multi
+FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR
+RESOLUTION=1024
+ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
+    --resolution $RESOLUTION\
+    --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
+    --use-point-color True \
+
+FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/multiscene/$EXP_NAME/$MODEL_NAME
+mkdir -p $FINAL_PATH
+mv $FULL_OUTPUT_PATH $FINAL_PATH

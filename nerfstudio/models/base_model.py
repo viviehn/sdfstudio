@@ -140,6 +140,8 @@ class Model(nn.Module):
         if self.collider is not None and isinstance(ray_bundle, RayBundle):
             ray_bundle = self.collider(ray_bundle)
         # pause()
+        if self.collider is not None and isinstance(ray_bundle, list) and isinstance(ray_bundle[0], RayBundle):
+            ray_bundle = [self.collider(ray_bundle_single) for ray_bundle_single in ray_bundle]
 
         return self.get_outputs(ray_bundle)
 

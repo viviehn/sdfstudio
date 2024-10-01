@@ -438,8 +438,6 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         # if False: 
         if self.config.dataparser.include_sdf_samples:
             ray_bundle = batch["sparse_sdf_samples"].to(self.device)
-            if step % 100 == 0:
-                print(ray_bundle[:10])
         else:
             ray_indices = batch["indices"]
             ray_bundle = self.train_ray_generator(ray_indices)
@@ -450,8 +448,11 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         self.eval_count += 1
         image_batch = next(self.iter_eval_image_dataloader)
         batch = self.eval_pixel_sampler.sample(image_batch)
-        ray_indices = batch["indices"]
-        ray_bundle = self.eval_ray_generator(ray_indices)
+        if self.config.dataparser.include_sdf_samples:
+            ray_bundle = batch["sparse_sdf_samples"].to(self.device)
+        else:
+            ray_indices = batch["indices"]
+            ray_bundle = self.eval_ray_generator(ray_indices)
         return ray_bundle, batch
 
     def next_eval_image(self, step: int) -> Tuple[int, RayBundle, Dict]:

@@ -521,8 +521,14 @@ class SDFStudio(DataParser):
                 }
             }
         else:
-            self.bbox_min = (-1.0, -1.0, -1.0)
-            self.bbox_max = (1.0, 1.0, 1.0)
+            if True:
+                self.sdf_path = f"{str(data_dir)}/../../scans/rand_surf-" #-40m-v9"
+                self.meta = meta
+                self.w2gt = np.array(meta["worldtogt"])
+                self.get_bbox_from_sdf()
+            else:
+                self.bbox_min = (-1.0, -1.0, -1.0)
+                self.bbox_max = (1.0, 1.0, 1.0)
         # load pair information
         pairs_path = data_dir / "pairs.txt"
         if pairs_path.exists() and split == "train" and self.config.load_pairs:
@@ -565,6 +571,29 @@ class SDFStudio(DataParser):
         )
         return dataparser_outputs
 
+    def get_bbox_from_sdf(self):
+        pnum = "40m"
+        postfix = "-v9"
+        path = self.sdf_path + pnum + postfix  #  + "-v9"
+        path = f"{path}-0.ply"
+        mesh = trimesh.load(path, process=False)
+        sdf_onsurface = torch.from_numpy(mesh.vertices).float()
+        n_onsurface = sdf_onsurface.shape[0]
+        n_offsurface = 0
+
+        dim = 4 + self.config.use_point_color * 6
+        sdf_samples = torch.zeros((n_onsurface + n_offsurface, dim)).float()
+        sdf_samples[:n_onsurface, :3] = sdf_onsurface
+
+        w2gt = torch.from_numpy(self.w2gt).float()
+        sdf_samples[:, :3] = (sdf_samples[:, :3] - w2gt[:3, 3][None]) #/ np.diag(w2gt)[:3][None]
+        sdf_samples[:, :4] = sdf_samples[:, :4] / w2gt[0, 0]
+        n_sdf_samples = sdf_samples.shape[0]
+        bbox_min = sdf_samples[:n_onsurface, :3].min(0)[0]
+        bbox_max = sdf_samples[:n_onsurface, :3].max(0)[0]
+        self.bbox_min = tuple([i.item() for i in bbox_min])
+        self.bbox_max = tuple([i.item() for i in bbox_max])
+
 
     def load_sdf_samples(self, part, split):
         print(f'Loading sdf samples from part {part}')
@@ -584,16 +613,25 @@ class SDFStudio(DataParser):
         k = int(4e7)
         # sdf_onsurface = np.zeros((k,3))
         # sdf_offsurface = np.zeros((k, 4))
+        return self.load_sdf_samples_from_path(path, offsurface_path=sdf_fname, split=split, part=part)
+
+
+    def load_sdf_samples_from_path(self, path, offsurface_path=None, split='train', part=0):
         mesh = trimesh.load(path, process=False)
         sdf_onsurface = torch.from_numpy(mesh.vertices).float()
-        sdf_offsurface = read_sdf(sdf_fname)
         n_onsurface = sdf_onsurface.shape[0]
-        n_offsurface = sdf_offsurface.shape[0]
-        # sdf_samples = np.zeros((n_onsurface + n_offsurface, 4), dtype=np.float32)
+        if offsurface_path is not None:
+            sdf_offsurface = read_sdf(offsurface_path)
+            n_offsurface = sdf_offsurface.shape[0]
+        else:
+            n_offsurface = 0
+
         dim = 4 + self.config.use_point_color * 6
         sdf_samples = torch.zeros((n_onsurface + n_offsurface, dim)).float()
         sdf_samples[:n_onsurface, :3] = sdf_onsurface
-        sdf_samples[n_onsurface:, :4] = torch.from_numpy(sdf_offsurface * 1.0).float()
+
+        if offsurface_path is not None:
+            sdf_samples[n_onsurface:, :4] = torch.from_numpy(sdf_offsurface * 1.0).float()
 
 
         # w2gt = self.w2gt 
@@ -635,10 +673,10 @@ class SDFStudio(DataParser):
                 normals = np.array([[idata[3], idata[4], idata[5]] for idata in data], dtype=np.float32)
                 np.save(path_norm, normals)
             sdf_samples[:n_onsurface, 7:10] = torch.tensor(normals)
-            # sdf_samples = torch.concatenate((sdf_samples, colors), 1)
-        # sdf_samples = torch.from_numpy(sdf_samples).float()
-        # sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, npoints_per_image, -1)
+
+        # here to switch btwn normal runs and extracting all features
         sdf_samples = sdf_samples[: npoints_per_image * n_images].reshape(npoints_per_image, n_images, -1).permute(1,0,2)
+        #sdf_samples = sdf_samples[:].reshape(len(sdf_samples), 1, -1).permute(1,0,2)
         return sdf_samples
 
     def get_dataparser_outputs(self, split="train", scene=None):

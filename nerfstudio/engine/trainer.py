@@ -38,6 +38,7 @@ from nerfstudio.engine.callbacks import (
 )
 from nerfstudio.engine.optimizers import Optimizers, setup_optimizers
 from nerfstudio.pipelines.base_pipeline import VanillaPipeline
+from nerfstudio.pipelines.multiscene_pipeline import MultiscenePipeline
 from nerfstudio.utils import profiler, writer
 from nerfstudio.utils.decorators import (
     check_eval_enabled,
@@ -49,6 +50,7 @@ from nerfstudio.utils.writer import EventName, TimeWriter
 from nerfstudio.viewer.server import viewer_utils
 from torch_ema import ExponentialMovingAverage
 from pdb import set_trace as pause
+import random
 
 CONSOLE = Console(width=120)
 
@@ -200,8 +202,7 @@ class Trainer:
                     writer.put_dict(name="Train Loss Dict", scalar_dict=loss_dict, step=step)
                     writer.put_dict(name="Train Metrics Dict", scalar_dict=metrics_dict, step=step)
 
-                if not isinstance(self.pipeline.datamanager, MultisceneDataManager):
-                    self.eval_iteration(step)
+                self.eval_iteration(step)
 
                 if step_check(step, self.config.trainer.steps_per_save):
                     self.save_checkpoint(step)
@@ -284,26 +285,34 @@ class Trainer:
     def _load_checkpoint(self) -> None:
         """Helper function to load pipeline and optimizer from prespecified checkpoint"""
         load_dir = self.config.trainer.load_dir
-        if "ngp_models" in str(load_dir):
-            load_path = glob(str(load_dir) + "/*")[0]
+        if "ngp_models" in str(load_dir) or "ngp-sdf-baseline" in str(load_dir):
+            if "ngp_models" in str(load_dir):
+                load_path = glob(str(load_dir) + "/*")[0]
+            elif "ngp-sdf-baseline" in str(load_dir):
+                paths = glob(str(load_dir)+"/neus-facto-angelo/*")
+                paths.sort()
+                load_path = paths[-1] + "/sdfstudio_models/step-000006000.ckpt"
             loaded_state = torch.load(load_path, map_location="cpu")
             # load the checkpoints for pipeline, optimizers, and gradient scalar
-            # pause()
+            '''
             self.pipeline._model.field.glin0.weight.data = loaded_state["model"]['backbone.0.weight'].cuda()
             self.pipeline._model.field.glin1.weight.data = loaded_state["model"]['backbone.1.weight'].cuda()
+            '''
             if self.config.pipeline.model.sdf_field.fix_geonet:
                 self.pipeline._model.field.glin0.weight.requires_grad = False
                 self.pipeline._model.field.glin1.weight.requires_grad = False
-            if 'backbone.2.weight' in loaded_state["model"].keys():
-                self.pipeline._model.field.glin2.weight.data = loaded_state["model"]['backbone.2.weight'].cuda()[:1]
-                if self.config.pipeline.model.sdf_field.fix_geonet:
-                    self.pipeline._model.field.glin2.weight.requires_grad = False
-                self.pipeline._model.field.glin3.weight.data = loaded_state["model"]['backbone.2.weight'].cuda()[1:]
-                if self.config.pipeline.model.sdf_field.fix_geonet:
-                    self.pipeline._model.field.glin3.weight.requires_grad = False
-            # else:
-                # self.pipeline._model.field.glin1.weight.data[:1] = loaded_state["model"]['backbone.1.weight'].cuda()
-                
+                self.pipeline._model.field.glin2.weight.requires_grad = False
+                self.pipeline._model.field.glin3.weight.requires_grad = False
+            if self.config.pipeline.fix_hashmap:
+                print('Freezing hashmap encodings!!')
+                self.pipeline._model.field.encoding.embeddings.requires_grad = False
+                '''
+                TODO: need to freeze grads for multiscene model
+                for key, value in state.items():
+                    if 'encodings_list' in key:
+                        keys_to_pop.append(key)
+                '''
+
             CONSOLE.print(f"done loading checkpoint from {load_path}")
 
         elif load_dir is not None:
@@ -342,8 +351,22 @@ class Trainer:
                 self.optimizers.load_schedulers(loaded_state["schedulers"])
             self.grad_scaler.load_state_dict(loaded_state["scalers"])
             CONSOLE.print(f"done loading checkpoint from {load_path}")
+
+        elif reference_checkpoint is not None:
+            load_step = self.config.trainer.load_step
+            if load_step is None:
+                print("Loading latest checkpoint from load_dir")
+                # NOTE: this is specific to the checkpoint name format
+                load_step = sorted(int(x[x.find("-") + 1 : x.find(".")]) for x in os.listdir(load_dir))[-1]
+            load_path = load_dir / f"step-{load_step:09d}.ckpt"
+            assert load_path.exists(), f"Checkpoint {load_path} does not exist"
+            loaded_state = torch.load(load_path, map_location="cpu")
+            # Load encoding from loaded_state into pipeline.model.field.alt_encoding
+            # VNTODO
+            self.pipeline.model.field.alt_encoding
+
         else:
-            CONSOLE.print("No checkpoints to load, training from scratch")
+            CONSOLE.print("No checkpoints to load, training from scratch with no references")
 
     @check_main_thread
     def save_checkpoint(self, step: int) -> None:
@@ -357,7 +380,6 @@ class Trainer:
             self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         # save the checkpoint
         ckpt_path = self.checkpoint_dir / f"step-{step:09d}.ckpt"
-        print(self.pipeline.model.state_dict)
         torch.save(
             {
                 "step": step,
@@ -391,10 +413,6 @@ class Trainer:
                 _, loss_dict, metrics_dict = self.pipeline.get_train_loss_dict(step=step)
                 loss = functools.reduce(torch.add, loss_dict.values())
             self.grad_scaler.scale(loss).backward()  # type: ignore
-        #print(self.pipeline.model.field.encodings_list[0].embeddings)
-        #print(self.pipeline.model.field.encoding.embeddings)
-        #print(self.pipeline.model.field.encodings_list[0].embeddings.grad)
-        #print(self.pipeline.model.field.encoding.embeddings.grad)
         self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
         self.grad_scaler.update()
         # pause()
@@ -416,10 +434,17 @@ class Trainer:
             step: Current training step.
         """
         # a batch of eval rays
+        if isinstance(self.pipeline, MultiscenePipeline):
+            sampled_scene_ids = random.sample(range(self.pipeline.datamanager.num_scenes), min(self.pipeline.datamanager.num_scenes,3))
 
         if step_check(step, self.config.trainer.steps_per_eval_batch, run_at_zero=self.config.trainer.sanity_check):
+            self.optimizers.zero_grad_all()
             print('get_eval_loss_dict')
-            _, eval_loss_dict, eval_metrics_dict = self.pipeline.get_eval_loss_dict(step=step)
+            if isinstance(self.pipeline, MultiscenePipeline):
+                _, eval_loss_dict, eval_metrics_dict = self.pipeline.get_eval_loss_dict(step=step,
+                        sampled_scene_ids=sampled_scene_ids)
+            else:
+                _, eval_loss_dict, eval_metrics_dict = self.pipeline.get_eval_loss_dict(step=step)
             eval_loss = functools.reduce(torch.add, eval_loss_dict.values())
             writer.put_scalar(name="Eval Loss", scalar=eval_loss, step=step)
             writer.put_dict(name="Eval Loss Dict", scalar_dict=eval_loss_dict, step=step)
@@ -427,8 +452,13 @@ class Trainer:
 
     # one eval image
         if step_check(step, self.config.trainer.steps_per_eval_image, run_at_zero=self.config.trainer.sanity_check):
+            self.optimizers.zero_grad_all()
             with TimeWriter(writer, EventName.TEST_RAYS_PER_SEC, write=False) as test_t:
                 print('get_eval_image_metrics_and_images')
+            if isinstance(self.pipeline, MultiscenePipeline):
+                metrics_dict, images_dict = self.pipeline.get_eval_image_metrics_and_images(step=step,
+                        sampled_scene_ids=sampled_scene_ids)
+            else:
                 metrics_dict, images_dict = self.pipeline.get_eval_image_metrics_and_images(step=step)
             writer.put_time(
                 name=EventName.TEST_RAYS_PER_SEC,
@@ -443,6 +473,7 @@ class Trainer:
 
         # all eval images
         if step_check(step, self.config.trainer.steps_per_eval_all_images):
+            self.optimizers.zero_grad_all()
             print('get_average_eval_image_metrics')
             metrics_dict, _ = self.pipeline.get_average_eval_image_metrics(step=step)
             writer.put_dict(name="Eval Images Metrics Dict (all images)", scalar_dict=metrics_dict, step=step)

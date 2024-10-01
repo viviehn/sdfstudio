@@ -94,14 +94,11 @@ class MultisceneDataManager(DataManager):
 
         self.num_scenes = len(self.config.dataparser.multiscene_data)
         self.dataparser_list = [self.config.dataparser.setup() for scene in self.config.dataparser.multiscene_data]
-        print(self.dataparser_list)
 
         self.train_dataset_list = []
         for scene, dataparser in zip(self.config.dataparser.multiscene_data, self.dataparser_list):
-            print(scene)
             self.train_dataset_list.append(self.create_train_dataset(scene, dataparser))
 
-        print(self.train_dataset_list)
 
         self.eval_dataset_list = []
         for scene, dataparser in zip(self.config.dataparser.multiscene_data, self.dataparser_list):
@@ -145,6 +142,8 @@ class MultisceneDataManager(DataManager):
     def setup_train(self):
         """Sets up the data loaders for training"""
         assert len(self.train_dataset_list) > 0
+        #return
+        # here for running on all samples
         CONSOLE.print("Setting up training dataset(s)...")
         self.train_image_dataloaders = []
         self.iter_train_image_dataloaders = []
@@ -155,7 +154,7 @@ class MultisceneDataManager(DataManager):
         for train_dataset in self.train_dataset_list:
             train_image_dataloader = CacheDataloader(
                 train_dataset,
-                num_images_to_sample_from=self.config.train_num_images_to_sample_from,
+                num_images_to_sample_from=1,
                 num_times_to_repeat_images=self.config.train_num_times_to_repeat_images,
                 device=self.device,
                 num_workers=self.world_size * 4,
@@ -200,7 +199,7 @@ class MultisceneDataManager(DataManager):
         for eval_dataset in self.eval_dataset_list:
             eval_image_dataloader = CacheDataloader(
                 eval_dataset,
-                num_images_to_sample_from=self.config.eval_num_images_to_sample_from,
+                num_images_to_sample_from=1,
                 num_times_to_repeat_images=self.config.eval_num_times_to_repeat_images,
                 device=self.device,
                 num_workers=self.world_size * 4,
@@ -284,7 +283,7 @@ class MultisceneDataManager(DataManager):
                 cat_ray_bundles.append(ray_bundle)
         return cat_ray_bundles, batch_list
 
-    def next_eval_image(self, step: int) -> Tuple[int, RayBundle, Dict]:
+    def next_eval_image(self, step: int) -> Tuple[List[int], List[RayBundle], List[Dict]]:
         image_idx_list = []
         camera_ray_bundle_list = []
         batch_list = []
@@ -300,27 +299,6 @@ class MultisceneDataManager(DataManager):
                 image_idx_list.append(image_idx)
                 camera_ray_bundle_list.append(camera_ray_bundle)
                 batch_list.append(batch)
-                break
         return image_idx_list, camera_ray_bundle_list, batch_list
         raise ValueError("No more eval images")
-
-    def get_param_groups(self) -> Dict[str, List[Parameter]]:  # pylint: disable=no-self-use
-        """Get the param groups for the data manager.
-        Returns:
-            A list of dictionaries containing the data manager's param groups.
-        """
-        param_groups = {}
-
-        camera_opt_params = []
-        for train_cam_opt in self.train_camera_optimizers:
-            camera_opt_params.extend(list(train_cam_opt.parameters()))
-
-
-        if self.config.camera_optimizer.mode != "off":
-            assert len(camera_opt_params) > 0
-            param_groups[self.config.camera_optimizer.param_group] = camera_opt_params
-        else:
-            assert len(camera_opt_params) == 0
-
-        return param_groups
 
