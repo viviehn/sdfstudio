@@ -198,3 +198,8 @@ W/
 *.ply
 **/*swp
 **/*swo
+
+*.npy
+*.feat
+*.pkl
+*.tsv
