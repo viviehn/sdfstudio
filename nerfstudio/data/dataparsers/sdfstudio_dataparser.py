@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, List
 from typing_extensions import Literal
 
 import numpy as np
@@ -186,7 +186,7 @@ def get_sparse_sfm_points(image_idx: int, sfm_points):
     return {"sparse_sfm_points": sparse_sfm_points}
 
 
-def get_sdf_samples(image_idx: int, sdf_samples):
+def get_sdf_samples(image_idx: int, sdf_samples, num_samples):
     """function to process additional sdf samples
 
     Args:
@@ -194,15 +194,8 @@ def get_sdf_samples(image_idx: int, sdf_samples):
         sdf samples: sdf points
     """
 
-    # choices = np.random.RandomState(image_idx).choice(sdf_samples.shape[0], size=10000, replace=False)
-    # if image_idx == 0:
-        # pause()
-    # v1
-    sparse_sdf_samples = sdf_samples[image_idx]
-    # sparse_sdf_samples[..., 3] = -sparse_sdf_samples[..., 3]
-    # v2
-    # choices = np.random.choice(sdf_samples.shape[0], size=10, replace=False)
-    # sparse_sdf_samples = sdf_samples[choices].reshape(-1, 4)
+    choices = np.random.choice(sdf_samples.shape[0], size=num_samples, replace=False)
+    sparse_sdf_samples = sdf_samples[choices].reshape(-1, 4)
     sparse_sdf_samples = BasicImages([sparse_sdf_samples])
     return {"sparse_sdf_samples": sparse_sdf_samples}
 
@@ -269,14 +262,19 @@ class SDFStudio(DataParser):
 
     config: SDFStudioDataParserConfig
 
-    def _generate_dataparser_outputs(self, split="train"):  # pylint: disable=unused-argument,too-many-statements
+    def _generate_dataparser_outputs(self, split="train", data_path=None):  # pylint: disable=unused-argument,too-many-statements
         # load meta data
-        config_is_json = self.config.data.suffix == '.json'
-        data_dir = self.config.data.parent if config_is_json else self.config.data
+        if data_path is not None:
+            data_dir = data_path
+            config_is_json = False
+        else:
+            config_is_json = self.config.data.suffix == '.json'
+            data_dir = self.config.data.parent if config_is_json else self.config.data
+
         if config_is_json:
             meta = load_from_json(self.config.data)
         else:
-            meta = load_from_json(self.config.data / "meta_data.json")
+            meta = load_from_json(data_dir / "meta_data.json")
 
         indices = list(range(len(meta["frames"])))
 
@@ -301,17 +299,14 @@ class SDFStudio(DataParser):
         cy = []
         camera_to_worlds = []
         for i, frame in enumerate(meta["frames"]):
-            if config_is_json:
-                image_filename = data_dir / frame["rgb_path"]
-            else:
-                image_filename = self.config.data / frame["rgb_path"]
+            image_filename = data_dir / frame["rgb_path"]
 
             intrinsics = torch.tensor(frame["intrinsics"])
             camtoworld = torch.tensor(frame["camtoworld"])
 
             # here is hard coded for DTU high-res images
             if self.config.load_dtu_highres:
-                image_filename = self.config.data / "image" / frame["rgb_path"].replace("_rgb", "")
+                image_filename = data_dir / "image" / frame["rgb_path"].replace("_rgb", "")
                 intrinsics[:2, :] *= 1200 / 384.0
                 intrinsics[0, 2] += 200
                 height, width = 1200, 1600
@@ -320,17 +315,11 @@ class SDFStudio(DataParser):
             if self.config.include_mono_prior:
                 assert meta["has_mono_prior"]
                 # load mono depth
-                if config_is_json:
-                    depth = np.load(data_dir / frame["mono_depth_path"])
-                else:
-                    depth = np.load(self.config.data / frame["mono_depth_path"])
+                depth = np.load(data_dir / frame["mono_depth_path"])
                 depth_images.append(torch.from_numpy(depth).float())
 
                 # load mono normal
-                if config_is_json:
-                    normal = np.load(data_dir / frame["mono_normal_path"])
-                else:
-                    normal = np.load(self.config.data / frame["mono_normal_path"])
+                normal = np.load(data_dir / frame["mono_normal_path"])
 
                 # transform normal to world coordinate system
                 normal = normal * 2.0 - 1.0  # omnidata output is normalized so we convert it back to normal here
@@ -353,10 +342,7 @@ class SDFStudio(DataParser):
             if self.config.include_sensor_depth:
                 assert meta["has_sensor_depth"]
                 # load sensor depth
-                if config_is_json:
-                    sensor_depth = np.load(data_dir / frame["sensor_depth_path"])
-                else:
-                    sensor_depth = np.load(self.config.data / frame["sensor_depth_path"])
+                sensor_depth = np.load(data_dir / frame["sensor_depth_path"])
                 sensor_depth_images.append(torch.from_numpy(sensor_depth).float())
 
             if self.config.include_foreground_mask:
@@ -366,7 +352,7 @@ class SDFStudio(DataParser):
                     # filenames format is 000.png
                     foreground_mask = np.array(
                         Image.open(
-                            self.config.data / "mask" / frame["foreground_mask"].replace("_foreground_mask", "")[-7:]
+                            data_dir / "mask" / frame["foreground_mask"].replace("_foreground_mask", "")[-7:]
                         ),
                         dtype="uint8",
                     )
@@ -375,7 +361,7 @@ class SDFStudio(DataParser):
                     if config_is_json:
                         foreground_mask = np.array(Image.open(data_dir / frame["foreground_mask"]), dtype="uint8")
                     else:
-                        foreground_mask = np.array(Image.open(self.config.data / frame["foreground_mask"]), dtype="uint8")
+                        foreground_mask = np.array(Image.open(data_dir / frame["foreground_mask"]), dtype="uint8")
                 foreground_mask = foreground_mask[..., :1]
                 foreground_mask_images.append(torch.from_numpy(foreground_mask).float() / 255.0)
 
@@ -385,7 +371,7 @@ class SDFStudio(DataParser):
                 if config_is_json:
                     sfm_points_view = np.loadtxt(data_dir / frame["sfm_sparse_points_view"])
                 else:
-                    sfm_points_view = np.loadtxt(self.config.data / frame["sfm_sparse_points_view"])
+                    sfm_points_view = np.loadtxt(data_dir / frame["sfm_sparse_points_view"])
                 sfm_points.append(torch.from_numpy(sfm_points_view).float())
 
             # append data
@@ -495,45 +481,26 @@ class SDFStudio(DataParser):
         if self.config.include_sdf_samples:
             self.meta = meta
             self.w2gt = np.array(meta["worldtogt"])
-            # sdf_fname = self.config.data / "rand_surf-4m.ply"
-            # scene = "785e7504b9"
-            if config_is_json:
-                self.sdf_path = f"{str(data_dir)}/../../scans/rand_surf-" #-40m-v9"
-            else:
-                self.sdf_path = f"{str(self.config.data)}/../../scans/rand_surf-" #-40m-v9"
-            n_images = len(self.meta["frames"])
-            n_images = 305
-            self.n_images = n_images
-            if split == "train":
-                # self.choices = {}
-                # choices = np.arange(int(8e7))
-                indices = indices[:self.n_images]
-            # else:
-                # choices = np.arange(280000)
-            # np.random.RandomState(0).shuffle(choices)
-
-            # self.choices[split] = choices
-            # if split == "train":
-            # else:
-                # self.sdf_path = f"{str(self.config.data)}/../../scans/rand_surf-140k-v9"
-            # self.num_samples = num_samples
-            # self.size = size
+            self.sdf_path = f"{str(data_dir)}/../../scans/rand_surf-" #-40m-v9"
+            self.npoints_per_image = 2**18 # roughly 262k; roughly 305 per 40m
             sdf_samples = self.load_sdf_samples(0, split)
 
             additional_inputs_dict = {
                     "sdf_samples": {
                     "func": get_sdf_samples,
-                    "kwargs": {"sdf_samples": sdf_samples},
+                    "kwargs": {"sdf_samples": sdf_samples,
+                               "num_samples": self.npoints_per_image},
                 }
             }
         else:
-            self.bbox_min = (-1.0, -1.0, -1.0)
-            self.bbox_max = (1.0, 1.0, 1.0)
+            load_bbox_from_ply = True
+            if load_bbox_from_ply:
+                # load sdf samples just to get bbox
+            else:
+                self.bbox_min = (-1.0, -1.0, -1.0)
+                self.bbox_max = (1.0, 1.0, 1.0)
         # load pair information
-        if config_is_json:
-            pairs_path = data_dir / "pairs.txt"
-        else:
-            pairs_path = self.config.data / "pairs.txt"
+        pairs_path = data_dir / "pairs.txt"
         if pairs_path.exists() and split == "train" and self.config.load_pairs:
             with open(pairs_path, "r") as f:
                 pairs = f.readlines()
@@ -580,7 +547,10 @@ class SDFStudio(DataParser):
         pnum = "40m" if split=="train" else "140k"
         postfix = "-v9"
         if self.config.use_point_color:
-            postfix += "-rgb"
+            if split=="train":
+                postfix += "-rgb"
+            else:
+                postfix += "-rgb2"
         # TODO eval load smaller size
         path = self.sdf_path + pnum + postfix  #  + "-v9"
         path = f"{path}-{part}.ply"
@@ -610,19 +580,13 @@ class SDFStudio(DataParser):
         sdf_samples[:, :4] = sdf_samples[:, :4] / w2gt[0, 0]
         n_sdf_samples = sdf_samples.shape[0]
         # choices = self.choices[split]
-        if split == "train":
-            n_images = self.n_images
-            npoints_per_image = 2**18 #n_sdf_samples // n_images
-            if part == 0:
-                # bbox_min = sdf_samples[:n_onsurface, :3].min(0)
-                # bbox_max = sdf_samples[:n_onsurface, :3].max(0)
-                bbox_min = sdf_samples[:n_onsurface, :3].min(0)[0]
-                bbox_max = sdf_samples[:n_onsurface, :3].max(0)[0]
-                self.bbox_min = tuple([i.item() for i in bbox_min])
-                self.bbox_max = tuple([i.item() for i in bbox_max])
-        else:
-            n_images = 2000
-            npoints_per_image = 60
+        if part == 0:
+            # bbox_min = sdf_samples[:n_onsurface, :3].min(0)
+            # bbox_max = sdf_samples[:n_onsurface, :3].max(0)
+            bbox_min = sdf_samples[:n_onsurface, :3].min(0)[0]
+            bbox_max = sdf_samples[:n_onsurface, :3].max(0)[0]
+            self.bbox_min = tuple([i.item() for i in bbox_min])
+            self.bbox_max = tuple([i.item() for i in bbox_max])
         # choices = self.choices
         if self.config.use_point_color:
             # rgb
@@ -646,3 +610,4 @@ class SDFStudio(DataParser):
         # sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, npoints_per_image, -1)
         sdf_samples = sdf_samples[: npoints_per_image * n_images].reshape(npoints_per_image, n_images, -1).permute(1,0,2)
         return sdf_samples
+

@@ -465,13 +465,8 @@ method_configs["neus-facto-angelo"] = Config(
             # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000, 800_000], gamma=0.1),
         },
         "fields_geometry": {
-            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15, betas=(0.9, 0.99)),
-            "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
-            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
-            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[200_000], gamma=0.1),
-            # "optimizer": AdamOptimizerConfig(lr=1e-4, eps=1e-15, betas=(0.9, 0.99)),
-            # # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[3_660], gamma=0.1),
-            # "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[120_000], gamma=0.1),
+             "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+             "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=0, milestones=[200_000], gamma=0.1),
         },
         "field_background": {
             "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
@@ -1202,6 +1197,7 @@ method_configs["phototourism"] = Config(
     viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
     vis="viewer",
 )
+
 
 AnnotatedBaseConfigUnion = tyro.conf.SuppressFixed[  # Don't show unparseable (fixed) arguments in helptext.
     tyro.conf.FlagConversionOff[
