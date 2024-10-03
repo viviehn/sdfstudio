@@ -13,9 +13,9 @@ mkdir -p /scratch/vivienn/outputs/$TMP_STR
 
 ns-train $MODEL_NAME \
     --output-dir $LOCAL_OUTDIR\
-    --trainer.max-num-iterations 61  --trainer.steps_per_save 1000\
-    --trainer.steps-per-eval-image 100 \
-    --trainer.steps_per_eval_batch 10 \
+    --trainer.max-num-iterations 6101  --trainer.steps_per_save 1000\
+    --trainer.steps-per-eval-image 1000 \
+    --trainer.steps_per_eval_batch 1000 \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
@@ -50,7 +50,8 @@ ns-train $MODEL_NAME \
     --timestamp $TMP_STR \
     --experiment-name $DATA_ID     sdfstudio-data \
     --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio \
-    --include_sdf_samples True\
+    --include_sdf_samples True \
+    --use_point_color True \
 
 FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$MODEL_NAME/$TMP_STR
 RESOLUTION=1024

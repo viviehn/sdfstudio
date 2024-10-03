@@ -14,8 +14,8 @@ mkdir -p $LOCAL_OUTDIR
 
 OMP_NUM_THREADS=4 ns-train $MODEL_NAME \
     --trainer.max-num-iterations 200001  --trainer.steps_per_save 10000\
-    --trainer.steps-per-eval-image 10\
-    --trainer.steps_per_eval_batch 10 \
+    --trainer.steps-per-eval-image 10000\
+    --trainer.steps_per_eval_batch 1000 \
     --output-dir $LOCAL_OUTDIR \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
@@ -40,7 +40,6 @@ OMP_NUM_THREADS=4 ns-train $MODEL_NAME \
     --timestamp $TMP_STR \
     --experiment-name $DATA_ID     sdfstudio-data \
     --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio \
-    --include_sdf_samples True\
 
 FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$MODEL_NAME/$TMP_STR
 RESOLUTION=1024
