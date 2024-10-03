@@ -182,22 +182,20 @@ def get_sparse_sfm_points(image_idx: int, sfm_points):
 
     # sfm points
     sparse_sfm_points = sfm_points[image_idx]
-    sparse_sfm_points = BasicImages([sparse_sfm_points])
+    #sparse_sfm_points = BasicImages([sparse_sfm_points])
     return {"sparse_sfm_points": sparse_sfm_points}
 
 
-def get_sdf_samples(image_idx: int, sdf_samples, num_samples):
+def get_sdf_samples(image_idx: int, sdf_samples):
     """function to process additional sdf samples
 
     Args:
         image_idx: specific image index to work with
         sdf samples: sdf points
     """
-
-    choices = np.random.choice(sdf_samples.shape[0], size=num_samples, replace=False)
-    sparse_sdf_samples = sdf_samples[choices].reshape(-1, 4)
-    sparse_sdf_samples = BasicImages([sparse_sdf_samples])
-    return {"sparse_sdf_samples": sparse_sdf_samples}
+    sparse_sdf_points= sdf_samples[image_idx]
+    sparse_sdf_points = BasicImages([sparse_sdf_points])
+    return {"sparse_sdf_samples": sparse_sdf_points}
 
 
 @dataclass
@@ -477,28 +475,28 @@ class SDFStudio(DataParser):
                 "func": get_sparse_sfm_points,
                 "kwargs": {"sfm_points": filter_list(sfm_points, indices)},
             }
-        self.n_images = 0
-        if self.config.include_sdf_samples:
-            self.meta = meta
-            self.w2gt = np.array(meta["worldtogt"])
-            self.sdf_path = f"{str(data_dir)}/../../scans/rand_surf-" #-40m-v9"
-            self.npoints_per_image = 2**18 # roughly 262k; roughly 305 per 40m
-            sdf_samples = self.load_sdf_samples(0, split)
 
+        self.n_images = len(meta['frames'])
+
+        # do this all the time, to make it easier to run in the future
+        # and gives us stricter bbox dims
+        self.meta = meta
+        self.w2gt = np.array(meta["worldtogt"])
+        self.sdf_path = f"{str(data_dir)}/../../scans/rand_surf-" #-40m-v9"
+        try:
+            sdf_samples = self.load_sdf_samples(0, split)
+        except:
+            self.bbox_min = (-1.0, -1.0, -1.0)
+            self.bbox_max = (1.0, 1.0, 1.0)
+        if self.config.include_sdf_samples:
+            # make this based on # of train images in rgb dataset?
             additional_inputs_dict = {
                     "sdf_samples": {
                     "func": get_sdf_samples,
                     "kwargs": {"sdf_samples": sdf_samples,
-                               "num_samples": self.npoints_per_image},
+                               },
                 }
             }
-        else:
-            load_bbox_from_ply = True
-            if load_bbox_from_ply:
-                # load sdf samples just to get bbox
-            else:
-                self.bbox_min = (-1.0, -1.0, -1.0)
-                self.bbox_max = (1.0, 1.0, 1.0)
         # load pair information
         pairs_path = data_dir / "pairs.txt"
         if pairs_path.exists() and split == "train" and self.config.load_pairs:
@@ -537,7 +535,6 @@ class SDFStudio(DataParser):
             normals=filter_list(normal_images, indices),
             bbox_min=self.bbox_min,
             bbox_max=self.bbox_max,
-            # sdf_samples_len= self.n_images
         )
         return dataparser_outputs
 
@@ -608,6 +605,16 @@ class SDFStudio(DataParser):
             # sdf_samples = torch.concatenate((sdf_samples, colors), 1)
         # sdf_samples = torch.from_numpy(sdf_samples).float()
         # sdf_samples = sdf_samples[choices][: npoints_per_image * n_images].reshape(n_images, npoints_per_image, -1)
-        sdf_samples = sdf_samples[: npoints_per_image * n_images].reshape(npoints_per_image, n_images, -1).permute(1,0,2)
+        # sdf_samples = sdf_samples[: self.npoints_per_image * n_images].reshape(self.npoints_per_image, n_images, -1).permute(1,0,2)
+        # of points, sample dim
+        #sdf_samples = sdf_samples[None,...]
+
+        # shuffle points
+        npoints_per_image = int(len(sdf_samples) // self.n_images)
+        ntotal_points = int(npoints_per_image * self.n_images)
+        print(self.n_images, npoints_per_image, ntotal_points)
+        choices = np.random.choice(sdf_samples.shape[0], size=ntotal_points, replace=False)
+        sdf_samples = sdf_samples[choices].reshape((self.n_images, npoints_per_image, -1))
+        print(sdf_samples.shape)
         return sdf_samples
 

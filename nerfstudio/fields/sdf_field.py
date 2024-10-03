@@ -671,6 +671,7 @@ class SDFField(Field):
         return rgb
 
     def get_outputs(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False, sdf_only=False, need_rgb=False):
+        # TODO:  make this generalized/based on arguments
         """compute output of ray samples"""
         if isinstance(ray_samples, torch.Tensor):
             inputs = ray_samples[:, :3]
@@ -685,16 +686,15 @@ class SDFField(Field):
 
             # if self.config.curvature_loss_multi== 0.0:
             # if True: #self.config.eikonal_loss_mult == 0.0 and 
-            if ray_samples.shape[1] == 4:
-                if sdf_only:
-                    return outputs
+            if ray_samples.shape[1] == 4 and sdf_only:
+                return outputs
+
             if self.config.use_numerical_gradients:
                 gradients, sampled_sdf = self.gradient(
                     inputs,
                     skip_spatial_distortion=True,
                     return_sdf=True,
                 )
-                # sampled_sdf = sampled_sdf.view(-1, *ray_samples.frustums.directions.shape[:-1]).permute(1, 2, 0).contiguous()
                 sampled_sdf = sampled_sdf.permute(1, 0).contiguous()
             else:
                 d_output = torch.ones_like(sdf, requires_grad=False, device=sdf.device)
@@ -709,10 +709,7 @@ class SDFField(Field):
                 sampled_sdf = None
             if ray_samples.shape[1] == 4 and need_rgb == False:
                 outputs.update({
-                        # FieldHeadNames.SDF: sdf,
-                        # FieldHeadNames.NORMAL: normals,
                         FieldHeadNames.GRADIENT: gradients,
-                        # "points_norm": points_norm,
                         "sampled_sdf": sampled_sdf,
                     })
                 return outputs
@@ -731,11 +728,6 @@ class SDFField(Field):
 
             density = self.laplace_density(sdf)
             outputs.update({
-                    # FieldHeadNames.SDF: sdf,
-                    # FieldHeadNames.NORMAL: normals,
-                    # FieldHeadNames.GRADIENT: gradients,
-                    # "points_norm": points_norm,
-                    # "sampled_sdf": sampled_sdf,
                     FieldHeadNames.RGB: rgb,
                     FieldHeadNames.DENSITY: density,
                 })
@@ -791,7 +783,7 @@ class SDFField(Field):
         gradients = gradients.view(*ray_samples.frustums.directions.shape[:-1], -1)
         normals = F.normalize(gradients, p=2, dim=-1)
         points_norm = points_norm.view(*ray_samples.frustums.directions.shape[:-1], -1)
-        
+
         outputs.update(
             {
                 FieldHeadNames.RGB: rgb,

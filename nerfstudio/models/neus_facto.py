@@ -282,39 +282,44 @@ class NeuSFactoModel(NeuSModel):
 
 
     #@profiler.time_function
-    def sample_and_forward_field(self, ray_bundle: RayBundle):
+    def sample_and_forward_field(self, model_inputs):
         # pause()
-        if isinstance(ray_bundle, torch.Tensor):
+        if isinstance(model_inputs, torch.Tensor):
             sdf_only = self.config.eikonal_loss_mult == 0 and self.config.curvature_loss_multi == 0
-            field_outputs = self.field(ray_bundle, return_alphas=False, sdf_only=sdf_only)
-            return {"field_outputs": field_outputs}
+            field_outputs = self.field(model_inputs, return_alphas=False, sdf_only=sdf_only)
 
-        ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
+            samples_and_field_outputs = {
+                "field_outputs": field_outputs,
+            }
 
-        field_outputs = self.field(ray_samples, return_alphas=True)
+        else:
 
-        if self.config.background_model != "none":
-            field_outputs = self.forward_background_field_and_merge(ray_samples, field_outputs)
+            ray_samples, weights_list, ray_samples_list = self.proposal_sampler(model_inputs, density_fns=self.density_fns)
 
-        weights = ray_samples.get_weights_from_alphas(field_outputs[FieldHeadNames.ALPHA])
+            field_outputs = self.field(ray_samples, return_alphas=True)
 
-        weights_list.append(weights)
-        ray_samples_list.append(ray_samples)
+            if self.config.background_model != "none":
+                field_outputs = self.forward_background_field_and_merge(ray_samples, field_outputs)
 
-        samples_and_field_outputs = {
-            "ray_samples": ray_samples,
-            "field_outputs": field_outputs,
-            "weights": weights,
-            "weights_list": weights_list,
-            "ray_samples_list": ray_samples_list,
-        }
+            weights = ray_samples.get_weights_from_alphas(field_outputs[FieldHeadNames.ALPHA])
+
+            weights_list.append(weights)
+            ray_samples_list.append(ray_samples)
+
+            samples_and_field_outputs = {
+                "ray_samples": ray_samples,
+                "field_outputs": field_outputs,
+                "weights": weights,
+                "weights_list": weights_list,
+                "ray_samples_list": ray_samples_list,
+            }
         return samples_and_field_outputs
 
     #@profiler.time_function
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = super().get_loss_dict(outputs, batch, metrics_dict)
 
-        if self.training and not "sparse_sdf_samples" in batch.keys():
+        if self.training and not self.config.sdf_sample_training:
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss_zip(
                 outputs["weights_list"], outputs["ray_samples_list"]
             )
@@ -340,7 +345,7 @@ class NeuSFactoModel(NeuSModel):
 
     #@profiler.time_function
     def get_metrics_dict(self, outputs, batch) -> Dict:
-        if "sparse_sdf_samples" in batch.keys():
+        if self.config.sdf_sample_training:
             metrics_dict = {}
         else:
             metrics_dict = super().get_metrics_dict(outputs, batch)

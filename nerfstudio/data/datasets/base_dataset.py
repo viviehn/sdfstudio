@@ -118,8 +118,10 @@ class InputDataset(Dataset):
             data["mask"] = get_image_mask_tensor_from_path(filepath=mask_filepath, scale_factor=self.scale_factor)
         metadata = self.get_metadata(data)
         data.update(metadata)
+        '''
         if "sparse_sdf_samples" in data:
             image_idx = image_idx % 3
+        '''
         if image_idx in self.image_cache:
             image = self.image_cache[image_idx]
         else:

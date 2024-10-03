@@ -13,8 +13,9 @@ mkdir -p /scratch/vivienn/outputs/$TMP_STR
 
 ns-train $MODEL_NAME \
     --output-dir $LOCAL_OUTDIR\
-    --trainer.max-num-iterations 6101  --trainer.steps_per_save 1000\
-    --trainer.steps-per-eval-image 2000\
+    --trainer.max-num-iterations 61  --trainer.steps_per_save 1000\
+    --trainer.steps-per-eval-image 100 \
+    --trainer.steps_per_eval_batch 10 \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
@@ -32,11 +33,12 @@ ns-train $MODEL_NAME \
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False\
     --pipeline.model.sdf-field.use-numerical-gradients False\
-    --pipeline.model.sdf-field.fields-geometry.optimizer.lr .0001 \
-    --pipeline.model.sdf-field.fields-geometry.optimizer.betas 0.9 0.99 \
-    --pipeline.model.sdf-field.fields-geometry.scheduler.warm-up-end 0 \
-    --pipeline.model.sdf-field.fields-geometry.scheduler.milestones 3660 \
+    --optimizers.fields-geometry.optimizer.lr .0001 \
+    --optimizers.fields-geometry.optimizer.betas 0.9 0.99 \
+    --optimizers.fields-geometry.scheduler.warm-up-end 0 \
+    --optimizers.fields-geometry.scheduler.milestones 3660 \
     --pipeline.model.background-model none\
+    --pipeline.model.sdf_sample_training True \
     --pipeline.model.sparse_points_sdf_loss_mult 1.0\
     --pipeline.model.curvature-loss-warmup-steps 2000\
     --pipeline.model.curvature-loss-multi 0.0\
@@ -50,7 +52,7 @@ ns-train $MODEL_NAME \
     --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio \
     --include_sdf_samples True\
 
-FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$method/$TMP_STR
+FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$MODEL_NAME/$TMP_STR
 RESOLUTION=1024
 ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
     --resolution $RESOLUTION\

@@ -292,6 +292,7 @@ class VanillaDataManagerConfig(InstantiateConfig):
     """
 
 
+
 class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
     """Basic stored data manager implementation.
 
@@ -422,24 +423,16 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
             shuffle=False,
         )
 
-    def next_train(self, step: int) -> Tuple[RayBundle, Dict]:
+    def next_train(self, step: int, sdf_training=False) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the train dataloader."""
-        # pause()
         self.train_count += 1
         image_batch = next(self.iter_train_image_dataloader)
-        # pause()
         batch = self.train_pixel_sampler.sample(image_batch)
-        # TODO
-        # if True:
-        # if False: 
-        if self.config.dataparser.include_sdf_samples:
-            ray_bundle = batch["sparse_sdf_samples"].to(self.device)
-        else:
-            ray_indices = batch["indices"]
-            ray_bundle = self.train_ray_generator(ray_indices)
+        ray_indices = batch["indices"]
+        ray_bundle = self.train_ray_generator(ray_indices)
         return ray_bundle, batch
 
-    def next_eval(self, step: int) -> Tuple[RayBundle, Dict]:
+    def next_eval(self, step: int, sdf_training=False) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the eval dataloader."""
         self.eval_count += 1
         image_batch = next(self.iter_eval_image_dataloader)

@@ -21,6 +21,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Type
+from collections import defaultdict
 
 import torch
 import torch.nn.functional as F
@@ -141,6 +142,7 @@ class SurfaceModelConfig(ModelConfig):
     """whether to use near and far collider from command line"""
     scene_contraction_norm: Literal["inf", "l2"] = "inf"
     """Which norm to use for the scene contraction."""
+    sdf_sample_training: bool = False
 
 
 class SurfaceModel(Model):
@@ -265,6 +267,19 @@ class SurfaceModel(Model):
             param_groups["field_background"] = list(self.field_background)
         return param_groups
 
+    def forward(self, model_inputs) -> Dict[str, torch.Tensor]:
+        """Run forward starting with a ray bundle. This outputs different things depending on the configuration
+        of the model and whether or not the batch is provided (whether or not we are training basically)
+
+        Args:
+            ray_bundle: containing all the information needed to render that ray latents included
+        """
+
+        if self.collider is not None and not isinstance(model_inputs, torch.Tensor):
+            model_inputs = self.collider(model_inputs)
+
+        return self.get_outputs(model_inputs)
+
     @abstractmethod
     def sample_and_forward_field(self, ray_bundle: RayBundle) -> Dict:
         """_summary_
@@ -310,10 +325,42 @@ class SurfaceModel(Model):
         # TODO make everything outside the sphere to be 0
         return field_outputs
 
-    def get_outputs(self, ray_bundle: RayBundle) -> Dict:
+    @torch.no_grad()
+    def get_outputs_for_camera_ray_bundle(self, model_inputs) -> Dict[str, torch.Tensor]:
+        """Takes in camera parameters and computes the output of the model.
+
+        Args:
+            camera_ray_bundle: ray bundle to calculate outputs over
+        """
+        '''
+        if self.config.sdf_sample_training:
+            outputs = self.forward(model_inputs)
+        else:
+        '''
+        num_rays_per_chunk = self.config.eval_num_rays_per_chunk
+        image_height, image_width = model_inputs.origins.shape[:2]
+        num_rays = len(model_inputs)
+        outputs_lists = defaultdict(list)
+        for i in range(0, num_rays, num_rays_per_chunk):
+            start_idx = i
+            end_idx = i + num_rays_per_chunk
+            ray_bundle = model_inputs.get_row_major_sliced_ray_bundle(start_idx, end_idx)
+            outputs = self.forward(ray_bundle)
+
+            for output_name, output in outputs.items():  # type: ignore
+                outputs_lists[output_name].append(output)
         outputs = {}
-        samples_and_field_outputs = self.sample_and_forward_field(ray_bundle=ray_bundle)
-        # pause()
+        for output_name, outputs_list in outputs_lists.items():
+            if not torch.is_tensor(outputs_list[0]):
+                # TODO: handle lists of tensors as well
+                continue
+            outputs[output_name] = torch.cat(outputs_list).view(image_height, image_width, -1)  # type: ignore
+        return outputs
+
+    def get_outputs(self, model_inputs) -> Dict:
+        outputs = {}
+        samples_and_field_outputs = self.sample_and_forward_field(model_inputs)
+        outputs.update(samples_and_field_outputs)
 
         # Shotscuts
         field_outputs = samples_and_field_outputs["field_outputs"]
@@ -331,71 +378,70 @@ class SurfaceModel(Model):
             # grad_points = self.field.gradient(eik_points)
             # outputs.update({"eik_grad": grad_points})
 
-            outputs.update(samples_and_field_outputs)
 
-        # TODO
-            if isinstance(ray_bundle, torch.Tensor):
-                if FieldHeadNames.RGB in field_outputs.keys():
-                    outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
-                return outputs
+        if isinstance(model_inputs, torch.Tensor):
+            if FieldHeadNames.RGB in field_outputs.keys():
+                outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
 
-        ray_samples = samples_and_field_outputs["ray_samples"]
-        weights = samples_and_field_outputs["weights"]
+        else:
+            ray_bundle = model_inputs
+            ray_samples = samples_and_field_outputs["ray_samples"]
+            weights = samples_and_field_outputs["weights"]
 
-        rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
-        depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
-        # the rendered depth is point-to-point distance and we should convert to depth
-        depth = depth / ray_bundle.directions_norm
+            rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+            depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
+            # the rendered depth is point-to-point distance and we should convert to depth
+            depth = depth / ray_bundle.directions_norm
 
-        # remove the rays that don't intersect with the surface
-        # hit = (field_outputs[FieldHeadNames.SDF] > 0.0).any(dim=1) & (field_outputs[FieldHeadNames.SDF] < 0).any(dim=1)
-        # depth[~hit] = 10000.0
+            # remove the rays that don't intersect with the surface
+            # hit = (field_outputs[FieldHeadNames.SDF] > 0.0).any(dim=1) & (field_outputs[FieldHeadNames.SDF] < 0).any(dim=1)
+            # depth[~hit] = 10000.0
 
-        normal = self.renderer_normal(semantics=field_outputs[FieldHeadNames.NORMAL], weights=weights)
-        accumulation = self.renderer_accumulation(weights=weights)
+            normal = self.renderer_normal(semantics=field_outputs[FieldHeadNames.NORMAL], weights=weights)
+            accumulation = self.renderer_accumulation(weights=weights)
 
-        # TODO add a flat to control how the background model are combined with foreground sdf field
-        # background model
-        if self.config.background_model != "none" and "bg_transmittance" in samples_and_field_outputs:
-            bg_transmittance = samples_and_field_outputs["bg_transmittance"]
+            # TODO add a flat to control how the background model are combined with foreground sdf field
+            # background model
+            if self.config.background_model != "none" and "bg_transmittance" in samples_and_field_outputs:
+                bg_transmittance = samples_and_field_outputs["bg_transmittance"]
 
-            # sample inversely from far to 1000 and points and forward the bg model
-            ray_bundle.nears = ray_bundle.fars
-            ray_bundle.fars = torch.ones_like(ray_bundle.fars) * self.config.far_plane_bg
+                # sample inversely from far to 1000 and points and forward the bg model
+                ray_bundle.nears = ray_bundle.fars
+                ray_bundle.fars = torch.ones_like(ray_bundle.fars) * self.config.far_plane_bg
 
-            ray_samples_bg = self.sampler_bg(ray_bundle)
-            # use the same background model for both density field and occupancy field
-            field_outputs_bg = self.field_background(ray_samples_bg)
-            weights_bg = ray_samples_bg.get_weights(field_outputs_bg[FieldHeadNames.DENSITY])
+                ray_samples_bg = self.sampler_bg(ray_bundle)
+                # use the same background model for both density field and occupancy field
+                field_outputs_bg = self.field_background(ray_samples_bg)
+                weights_bg = ray_samples_bg.get_weights(field_outputs_bg[FieldHeadNames.DENSITY])
 
-            rgb_bg = self.renderer_rgb(rgb=field_outputs_bg[FieldHeadNames.RGB], weights=weights_bg)
+                rgb_bg = self.renderer_rgb(rgb=field_outputs_bg[FieldHeadNames.RGB], weights=weights_bg)
 
-            # merge background color to forgound color
-            rgb = rgb + bg_transmittance * rgb_bg
+                # merge background color to forgound color
+                rgb = rgb + bg_transmittance * rgb_bg
 
-        outputs.update({
-            "rgb": rgb,
-            "accumulation": accumulation,
-            "depth": depth,
-            "normal": normal,
-            "weights": weights,
-            "ray_points": self.scene_contraction(
-                ray_samples.frustums.get_start_positions()
-            ),  # used for creating visiblity mask
-            "directions_norm": ray_bundle.directions_norm,  # used to scale z_vals for free space and sdf loss
-        })
+            outputs.update({
+                "rgb": rgb,
+                "accumulation": accumulation,
+                "depth": depth,
+                "normal": normal,
+                "weights": weights,
+                "ray_points": self.scene_contraction(
+                    ray_samples.frustums.get_start_positions()
+                ),  # used for creating visiblity mask
+                "directions_norm": ray_bundle.directions_norm,  # used to scale z_vals for free space and sdf loss
+            })
 
-        # TODO how can we move it to neus_facto without out of memory
-        if "weights_list" in samples_and_field_outputs:
-            weights_list = samples_and_field_outputs["weights_list"]
-            ray_samples_list = samples_and_field_outputs["ray_samples_list"]
+            # TODO how can we move it to neus_facto without out of memory
+            if "weights_list" in samples_and_field_outputs:
+                weights_list = samples_and_field_outputs["weights_list"]
+                ray_samples_list = samples_and_field_outputs["ray_samples_list"]
 
-            for i in range(len(weights_list) - 1):
-                outputs[f"prop_depth_{i}"] = self.renderer_depth(
-                    weights=weights_list[i], ray_samples=ray_samples_list[i]
-                )
-        # this is used only in viewer
-        outputs["normal_vis"] = (outputs["normal"] + 1.0) / 2.0
+                for i in range(len(weights_list) - 1):
+                    outputs[f"prop_depth_{i}"] = self.renderer_depth(
+                        weights=weights_list[i], ray_samples=ray_samples_list[i]
+                    )
+            # this is used only in viewer
+            outputs["normal_vis"] = (outputs["normal"] + 1.0) / 2.0
         return outputs
 
     def get_outputs_flexible(self, ray_bundle: RayBundle, additional_inputs: Dict[str, TensorType]) -> Dict:
@@ -432,21 +478,14 @@ class SurfaceModel(Model):
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict:
         loss_dict = {}
-        # pause()
-        if "sparse_sdf_samples" not in batch.keys() or not self.training:
-        # if "rgb" in outputs or not self.training:
-            image = batch["image"].to(self.device)
-            loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
+
+
         if self.training:
 
             # sparse sdf sample loss
-            if "sparse_sdf_samples" in batch:  # and self.config.sparse_points_sdf_loss_mult > 0.0:
+            if self.config.sdf_sample_training:
                 sparse_sdf_samples = batch["sparse_sdf_samples"].to(self.device)
-                # sparse_sdf_samples_sdf = self.field.forward_geonetwork(sparse_sdf_samples[:, :3])[:, 0].contiguous()
                 sparse_sdf_samples_sdf = outputs['field_outputs'][FieldHeadNames.SDF]
-                # pause()
-                # loss_dict["sparse_sdf_samples_loss"] =
-                # mape_loss(sparse_sdf_samples_sdf, sparse_sdf_samples[:, 3:4]) * self.config.sparse_points_sdf_loss_mult
                 loss_dict["sparse_sdf_samples_loss"] = (
                         torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3].reshape(sparse_sdf_samples_sdf.shape)))\
                                 * self.config.sparse_points_sdf_loss_mult
@@ -456,14 +495,14 @@ class SurfaceModel(Model):
                     mask_onsurface = (sparse_sdf_samples[:, 3] == 0) & (sparse_sdf_samples[:, 3:].sum(1) != 0)
                     color_gt = sparse_sdf_samples[:, 4:7][mask_onsurface]
                     loss_dict["point_rgb_loss"] = 0.1 * self.rgb_loss(outputs["rgb"], color_gt)
+                # other losses currently not defined for sdf training
+                return loss_dict
+
             # eikonal loss
             if "eik_grad" in outputs:
                 grad_theta = outputs["eik_grad"]
                 loss_dict["eikonal_loss"] = ((grad_theta.norm(2, dim=-1) - 1) ** 2).mean() * self.config.eikonal_loss_mult
 
-            if "sparse_sdf_samples" in batch.keys():
-                # loss_dict["rgb_loss"] = torch.zeros(0).to(self.device)
-                return loss_dict
             # s3im loss
             if self.config.s3im_loss_mult > 0:
                 loss_dict["s3im_loss"] = self.s3im_loss(image, outputs["rgb"]) * self.config.s3im_loss_mult
@@ -529,6 +568,24 @@ class SurfaceModel(Model):
             if self.config.periodic_tvl_mult > 0.0:
                 assert self.field.config.encoding_type == "periodic"
                 loss_dict["tvl_loss"] = self.field.encoding.get_total_variation_loss() * self.config.periodic_tvl_mult
+        else: # not training
+            if not self.config.sdf_sample_training:
+                image = batch["image"].to(self.device)
+                loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
+            else:
+                sparse_sdf_samples = batch["sparse_sdf_samples"].to(self.device)
+                sparse_sdf_samples_sdf = outputs['field_outputs'][FieldHeadNames.SDF]
+                loss_dict["sparse_sdf_samples_loss"] = (
+                        torch.mean(torch.abs(sparse_sdf_samples_sdf - sparse_sdf_samples[:, 3].reshape(sparse_sdf_samples_sdf.shape)))\
+                                * self.config.sparse_points_sdf_loss_mult
+                )
+                use_point_color = sparse_sdf_samples.shape[1] > 4
+                if use_point_color:
+                    mask_onsurface = (sparse_sdf_samples[:, 3] == 0) & (sparse_sdf_samples[:, 3:].sum(1) != 0)
+                    color_gt = sparse_sdf_samples[:, 4:7][mask_onsurface]
+                    loss_dict["point_rgb_loss"] = 0.1 * self.rgb_loss(outputs["rgb"], color_gt)
+                # other losses currently not defined for sdf training
+                return loss_dict
 
         return loss_dict
 

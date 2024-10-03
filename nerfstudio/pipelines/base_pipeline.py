@@ -117,11 +117,13 @@ class Pipeline(nn.Module):
 
         Args:
             step: current iteration step to update sampler if using DDP (distributed)
+        BasePipeline
         """
         if self.world_size > 1 and step:
             assert self.datamanager.train_sampler is not None
             self.datamanager.train_sampler.set_epoch(step)
-        if self.datamanager.config.dataparser.include_sdf_samples:
+        if self.config.datamanager.dataparser.include_sdf_samples:
+            # we probably should never actually be here
             ray_bundle = None
             batch = self.datamanager
         else:
@@ -226,8 +228,11 @@ class VanillaPipeline(Pipeline):
         super().__init__()
         self.config = config
         self.test_mode = test_mode
+        if config.model.sdf_sample_training:
+            assert config.datamanager.dataparser.include_sdf_samples, "Trying to train with sdf samples but did not include sdf samples in data"
+
         self.datamanager: VanillaDataManager = config.datamanager.setup(
-            device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
+            device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank,
         )
         self.datamanager.to(device)
         # TODO(ethan): get rid of scene_bounds from the model
@@ -238,7 +243,7 @@ class VanillaPipeline(Pipeline):
             num_train_data=len(self.datamanager.train_dataset),
             metadata=self.datamanager.train_dataset.metadata,
             world_size=world_size,
-            local_rank=local_rank,
+            local_rank=local_rank
         )
         self.model.to(device)
 
@@ -261,9 +266,12 @@ class VanillaPipeline(Pipeline):
         Args:
             step: current iteration step to update sampler if using DDP (distributed)
         """
-        # pause()
-        ray_bundle, batch = self.datamanager.next_train(step)
-        model_outputs = self._model(ray_bundle)
+        ray_bundle, batch = self.datamanager.next_train(step, sdf_training=self.model.config.sdf_sample_training)
+        if self.model.config.sdf_sample_training:
+            model_outputs = self._model(batch['sparse_sdf_samples'].to(self.device))
+        else:
+            model_outputs = self._model(ray_bundle)
+
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
 
         camera_opt_param_group = self.config.datamanager.camera_optimizer.param_group
@@ -296,8 +304,11 @@ class VanillaPipeline(Pipeline):
             step: current iteration step
         """
         self.eval()
-        ray_bundle, batch = self.datamanager.next_eval(step)
-        model_outputs = self.model(ray_bundle)
+        ray_bundle, batch = self.datamanager.next_eval(step, sdf_training=self.model.config.sdf_sample_training)
+        if self.model.config.sdf_sample_training:
+            model_outputs = self._model(batch['sparse_sdf_samples'].to(self.device))
+        else:
+            model_outputs = self._model(ray_bundle)
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
         self.train()
@@ -314,6 +325,9 @@ class VanillaPipeline(Pipeline):
         self.eval()
         torch.cuda.empty_cache()
         image_idx, camera_ray_bundle, batch = self.datamanager.next_eval_image(step)
+        #if self.model.config.sdf_sample_training:
+        #    outputs = self.model.get_outputs_for_camera_ray_bundle(batch['sparse_sdf_samples'].to(self.device))
+        #else:
         outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
         metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
         assert "image_idx" not in metrics_dict
@@ -323,6 +337,7 @@ class VanillaPipeline(Pipeline):
         self.train()
         return metrics_dict, images_dict
 
+    # Sort of ignoring this for now, since we rarely call it anyway...
     @profiler.time_function
     def get_average_eval_image_metrics(self, step: Optional[int] = None):
         """Iterate over all the images in the eval dataset and get the average.
