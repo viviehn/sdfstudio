@@ -483,11 +483,14 @@ class SDFStudio(DataParser):
         self.meta = meta
         self.w2gt = np.array(meta["worldtogt"])
         self.sdf_path = f"{str(data_dir)}/../../scans/rand_surf-" #-40m-v9"
+        sdf_samples = self.load_sdf_samples(0, split)
+        '''
         try:
             sdf_samples = self.load_sdf_samples(0, split)
         except:
             self.bbox_min = (-1.0, -1.0, -1.0)
             self.bbox_max = (1.0, 1.0, 1.0)
+        '''
         if self.config.include_sdf_samples:
             # make this based on # of train images in rgb dataset?
             additional_inputs_dict = {

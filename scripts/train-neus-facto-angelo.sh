@@ -14,7 +14,7 @@ mkdir -p $LOCAL_OUTDIR
 
 OMP_NUM_THREADS=4 ns-train $MODEL_NAME \
     --trainer.max-num-iterations 200001  --trainer.steps_per_save 10000\
-    --trainer.steps-per-eval-image 1000\
+    --trainer.steps-per-eval-image 10\
     --trainer.steps_per_eval_batch 10 \
     --output-dir $LOCAL_OUTDIR \
     --pipeline.model.sdf-field.inside-outside True     \

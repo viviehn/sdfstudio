@@ -360,19 +360,10 @@ class SurfaceModel(Model):
     def get_outputs(self, model_inputs) -> Dict:
         outputs = {}
         samples_and_field_outputs = self.sample_and_forward_field(model_inputs)
-        outputs.update(samples_and_field_outputs)
+        #outputs.update(samples_and_field_outputs)
 
         # Shotscuts
         field_outputs = samples_and_field_outputs["field_outputs"]
-        if self.training:
-            if FieldHeadNames.GRADIENT in field_outputs:
-                grad_points = field_outputs[FieldHeadNames.GRADIENT]
-                # points_norm = field_outputs["points_norm"]
-                # outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
-                outputs.update({"eik_grad": grad_points})
-            if "points_norm" in field_outputs:
-                points_norm = field_outputs["points_norm"]
-                outputs.update({"points_norm": points_norm})
 
             # TODO volsdf use different point set for eikonal loss
             # grad_points = self.field.gradient(eik_points)
@@ -380,10 +371,30 @@ class SurfaceModel(Model):
 
 
         if isinstance(model_inputs, torch.Tensor):
+            if self.training:
+                if FieldHeadNames.GRADIENT in field_outputs:
+                    grad_points = field_outputs[FieldHeadNames.GRADIENT]
+                    # points_norm = field_outputs["points_norm"]
+                    # outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
+                    outputs.update({"eik_grad": grad_points})
+                if "points_norm" in field_outputs:
+                    points_norm = field_outputs["points_norm"]
+                    outputs.update({"points_norm": points_norm})
+                outputs.update(samples_and_field_outputs)
             if FieldHeadNames.RGB in field_outputs.keys():
                 outputs.update({"rgb": field_outputs[FieldHeadNames.RGB]})
-
+            outputs.update({'field_outputs': field_outputs})
         else:
+            if self.training:
+                if FieldHeadNames.GRADIENT in field_outputs:
+                    grad_points = field_outputs[FieldHeadNames.GRADIENT]
+                    # points_norm = field_outputs["points_norm"]
+                    # outputs.update({"eik_grad": grad_points, "points_norm": points_norm})
+                    outputs.update({"eik_grad": grad_points})
+                if "points_norm" in field_outputs:
+                    points_norm = field_outputs["points_norm"]
+                    outputs.update({"points_norm": points_norm})
+                outputs.update(samples_and_field_outputs)
             ray_bundle = model_inputs
             ray_samples = samples_and_field_outputs["ray_samples"]
             weights = samples_and_field_outputs["weights"]
