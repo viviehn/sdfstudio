@@ -63,6 +63,8 @@ class CacheDataloader(DataLoader):
         super().__init__(dataset=dataset, **kwargs)  # This will set self.dataset
         self.num_times_to_repeat_images = num_times_to_repeat_images
         self.cache_all_images = (num_images_to_sample_from == -1) or (num_images_to_sample_from >= len(self.dataset))
+        if isinstance(num_images_to_sample_from, float):
+            num_images_to_sample_from = int(len(self.dataset)*num_images_to_sample_from)
         self.num_images_to_sample_from = len(self.dataset) if self.cache_all_images else num_images_to_sample_from
         self.device = device
         self.collate_fn = collate_fn

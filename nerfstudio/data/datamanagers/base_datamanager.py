@@ -267,7 +267,7 @@ class VanillaDataManagerConfig(InstantiateConfig):
     """Specifies the dataparser used to unpack the data."""
     train_num_rays_per_batch: int = 1024
     """Number of rays per batch to use per training iteration."""
-    train_num_images_to_sample_from: int = -1
+    train_num_images_to_sample_from: Union[int, float] = -1
     """Number of images to sample during training iteration."""
     train_num_times_to_repeat_images: int = -1
     """When not training on all images, number of iterations before picking new
