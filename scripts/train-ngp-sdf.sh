@@ -13,6 +13,7 @@ mkdir -p /scratch/vivienn/outputs/$TMP_STR
 
 ns-train $MODEL_NAME \
     --output-dir $LOCAL_OUTDIR\
+    --viewer.quit-on-train-completion True \
     --trainer.max-num-iterations 6101  --trainer.steps_per_save 1000\
     --trainer.steps-per-eval-image 1000 \
     --trainer.steps_per_eval_batch 1000 \

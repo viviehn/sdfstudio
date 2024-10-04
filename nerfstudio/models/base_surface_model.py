@@ -508,6 +508,9 @@ class SurfaceModel(Model):
                     loss_dict["point_rgb_loss"] = 0.1 * self.rgb_loss(outputs["rgb"], color_gt)
                 # other losses currently not defined for sdf training
                 return loss_dict
+            else:
+                image = batch["image"].to(self.device)
+                loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
 
             # eikonal loss
             if "eik_grad" in outputs:
