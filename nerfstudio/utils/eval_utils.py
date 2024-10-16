@@ -93,6 +93,8 @@ def eval_setup(
     # load checkpoints from wherever they were saved
     # TODO: expose the ability to choose an arbitrary checkpoint
     config.trainer.load_dir = config.get_checkpoint_dir()
+    if not os.path.exists(config.trainer.load_dir):
+        config.trainer.load_dir = config_path.parents[0] / config.trainer.relative_model_dir
     config.pipeline.datamanager.eval_image_indices = None
 
     # setup pipeline (which includes the DataManager)

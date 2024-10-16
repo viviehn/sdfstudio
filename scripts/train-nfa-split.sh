@@ -5,26 +5,24 @@ echo $CONDA_PREFIX
 git --git-dir=/n/fs/lines/sdfstudio-indoors/sdfstudio/.git branch --show-current
 echo $0
 
+
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
 LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
 
 DATA_ID=$1
-MODEL_NAME=neus-facto-angelo
-
-### CHECK ME ###
-EXP_CATEGORY=core
-EXP_NAME=$DATA_ID/rgb_training
-#################
+MODEL_NAME=nfa-split
+EXP_CATEGORY=split-appearance
+EXP_NAME=$DATA_ID/rgb-training
 
 mkdir -p $LOCAL_OUTDIR
 
 
-ns-train $MODEL_NAME \
-    --output-dir $LOCAL_OUTDIR \
+OMP_NUM_THREADS=4 ns-train $MODEL_NAME \
     --viewer.quit-on-train-completion True \
     --trainer.max-num-iterations 200001  --trainer.steps_per_save 10000\
     --trainer.steps-per-eval-image 10000\
     --trainer.steps_per_eval_batch 1000 \
+    --output-dir $LOCAL_OUTDIR \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \

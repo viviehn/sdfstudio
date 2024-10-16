@@ -268,7 +268,6 @@ class Trainer:
             load_path = glob(str(load_dir) + "/*")[0]
             loaded_state = torch.load(load_path, map_location="cpu")
             # load the checkpoints for pipeline, optimizers, and gradient scalar
-            # pause()
             self.pipeline._model.field.glin0.weight.data = loaded_state["model"]['backbone.0.weight'].cuda()
             self.pipeline._model.field.glin1.weight.data = loaded_state["model"]['backbone.1.weight'].cuda()
             if self.config.pipeline.model.sdf_field.fix_geonet:
@@ -296,8 +295,23 @@ class Trainer:
             assert load_path.exists(), f"Checkpoint {load_path} does not exist"
             loaded_state = torch.load(load_path, map_location="cpu")
             # load the checkpoints for pipeline, optimizers, and gradient scalar
-            self.pipeline.load_pipeline(loaded_state["pipeline"])
+            self.pipeline.load_pipeline(loaded_state["pipeline"],
+                    self.config.pipeline.model.sdf_field.pop_appearance_embedding,
+                    self.config.pipeline.model.sdf_field.pop_geometry_encoding,
+                    self.config.pipeline.model.sdf_field.pop_geonet,
+                    self.config.pipeline.model.sdf_field.pop_appearance_encoding,
+                    self.config.pipeline.model.sdf_field.pop_appearance_net,
+                    )
+            if self.config.pipeline.model.sdf_field.fix_geometry_encoding:
+                print("Freezing geometry encodings")
+
+                self.pipeline._model.field.encoding.embeddings.requires_grad = False
+                self.pipeline._model.field.encoding.offsets.requires_grad = False
+                if 'encoder_dict.geometry.embeddings' in self.pipeline._model.field.state_dict().keys():
+                    self.pipeline._model.field.encoder_dict.geometry.embeddings.requires_grad = False
+                    self.pipeline._model.field.encoder_dict.geometry.offsets.requires_grad = False
             if self.config.pipeline.model.sdf_field.fix_geonet:
+                print("Freezing geometry MLP")
                 self.pipeline._model.field.glin0.weight.requires_grad = False
                 self.pipeline._model.field.glin1.weight.requires_grad = False
                 self.pipeline._model.field.glin2.weight.requires_grad = False
@@ -307,6 +321,12 @@ class Trainer:
                     self.pipeline._model.field.glin2.bias.requires_grad = False
                 else:
                     self.pipeline._model.field.glin3.weight.requires_grad = False
+            if self.config.pipeline.model.sdf_field.fix_appearance_encoding:
+                print("Freezing appearance encodings")
+                self.pipeline._model.field.encoder_dict.appearance.embeddings.requires_grad = False
+                self.pipeline._model.field.encoder_dict.appearance.offsets.requires_grad = False
+            if self.config.pipeline.model.sdf_field.fix_appearance_net:
+                print("Freezing appearance MLP")
                 self.pipeline._model.field.clin0.weight.requires_grad = False
                 self.pipeline._model.field.clin0.bias.requires_grad = False
                 self.pipeline._model.field.clin1.weight.requires_grad = False
@@ -372,7 +392,6 @@ class Trainer:
             self.grad_scaler.scale(loss).backward()  # type: ignore
         self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
         self.grad_scaler.update()
-        # pause()
         if self.ema is not None:
             self.ema.update()
         self.optimizers.scheduler_step_all(step)

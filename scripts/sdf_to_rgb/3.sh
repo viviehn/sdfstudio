@@ -5,26 +5,26 @@ echo $CONDA_PREFIX
 git --git-dir=/n/fs/lines/sdfstudio-indoors/sdfstudio/.git branch --show-current
 echo $0
 
+
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
 LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
 
 DATA_ID=$1
-MODEL_NAME=neus-facto-angelo
+MODEL_NAME=nfa-split
+EXP_CATEGORY=split_appearance
+EXP_NAME=$DATA_ID/sdf_to_rgb
+BASE_OUTDIR=/n/fs/3d-indoor/sdfstudio_outputs/3d_indoor
 
-### CHECK ME ###
-EXP_CATEGORY=core
-EXP_NAME=$DATA_ID/rgb_training
-#################
 
 mkdir -p $LOCAL_OUTDIR
 
 
-ns-train $MODEL_NAME \
-    --output-dir $LOCAL_OUTDIR \
+OMP_NUM_THREADS=4 ns-train $MODEL_NAME \
     --viewer.quit-on-train-completion True \
     --trainer.max-num-iterations 200001  --trainer.steps_per_save 10000\
     --trainer.steps-per-eval-image 10000\
     --trainer.steps_per_eval_batch 1000 \
+    --output-dir $LOCAL_OUTDIR \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
@@ -41,11 +41,20 @@ ns-train $MODEL_NAME \
     --pipeline.model.sdf-field.geometric-init False\
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False \
+    --pipeline.model.sdf-field.pop-geonet False \
+    --pipeline.model.sdf-field.fix-geometry-encoding False \
+    --pipeline.model.sdf-field.pop-geometry-encoding False \
+    --pipeline.model.sdf-field.fix-appearance-net False \
+    --pipeline.model.sdf-field.pop-appearance-net True \
+    --pipeline.model.sdf-field.fix-appearance-encoding False \
+    --pipeline.model.sdf-field.pop-appearance-encoding True \
+    --pipeline.model.sdf-field.pop-appearance-embedding True \
     --pipeline.model.background-model none\
     --pipeline.datamanager.train_num_images_to_sample_from -1\
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
     --pipeline.datamanager.eval_num_images_to_sample_from 8 --vis tensorboard\
     --timestamp $TMP_STR \
+    --trainer.load-dir $BASE_OUTDIR/split_appearance/785e7504b9/sdf-sample-training/nfa-split/20241007_164317_24983/sdfstudio_models \
     --experiment-name $EXP_NAME     sdfstudio-data \
     --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio \
 
@@ -56,6 +65,6 @@ ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
     --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
     --use-point-color True \
 
-FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/$EXP_CATEGORY/$EXP_NAME/$MODEL_NAME
+FINAL_PATH=$BASE_OUTDIR/$EXP_CATEGORY/$EXP_NAME/$MODEL_NAME
 mkdir -p $FINAL_PATH
 mv $LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR $FINAL_PATH

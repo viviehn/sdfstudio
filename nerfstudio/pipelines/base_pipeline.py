@@ -444,24 +444,58 @@ class VanillaPipeline(Pipeline):
         self.train()
         return coarse_mask
 
-    def load_pipeline(self, loaded_state: Dict[str, Any]) -> None:
+    def load_pipeline(self, loaded_state: Dict[str, Any],
+            pop_appearance_embedding=False,
+            pop_geometry_encoding=True,
+            pop_geonet=False,
+            pop_appearance_encoding=True,
+            pop_appearance_net=False) -> None:
         """Load the checkpoint from the given path
 
         Args:
             loaded_state: pre-trained model state dict
         """
         state = {key.replace("module.", ""): value for key, value in loaded_state.items()}
-        if self.test_mode == 'val' and state["_model.field.embedding_appearance.embedding.weight"].shape[0] == 305:
-            state.pop("_model.field.embedding_appearance.embedding.weight")
-            state.pop("_model.field.encoding.embeddings")
-            state.pop("_model.field.encoding.offsets")
+
+        # Remove embedding appearance if loaded checkpoint was trained on SDF samples (because the embedding means nothing)
+        if self.test_mode != "inference" and self.test_mode != "test":
+            if pop_appearance_embedding:
+                print("Popping image embeddings")
+                state.pop("_model.field.embedding_appearance.embedding.weight")
+            if pop_geometry_encoding:
+                print("Popping geometry encodings, learning from scratch")
+                state.pop("_model.field.encoding.embeddings")
+                state.pop("_model.field.encoding.offsets")
+                if "_model.field.encoder_dict.geometry.embeddings" in state.keys():
+                    state.pop("_model.field.encoder_dict.geometry.embeddings")
+                    state.pop("_model.field.encoder_dict.geometry.offsets")
+            if pop_geonet:
+                print("Popping geometry MLP, learning from scratch")
+                keys_to_pop = []
+                for key in state.keys():
+                    if 'glin' in key:
+                        keys_to_pop.append(key)
+                for key in keys_to_pop:
+                    state.pop(key)
+            if pop_appearance_encoding:
+                print("Popping appearance encodings, learning from scratch")
+                state.pop("_model.field.encoder_dict.appearance.embeddings")
+                state.pop("_model.field.encoder_dict.appearance.offsets")
+            if pop_appearance_net:
+                print("Popping appearance MLP, learning from scratch")
+                keys_to_pop = []
+                for key in state.keys():
+                    if 'clin' in key:
+                        keys_to_pop.append(key)
+                for key in keys_to_pop:
+                    state.pop(key)
+
         if self.test_mode == "inference":
             state.pop("datamanager.train_camera_optimizer.pose_adjustment", None)
             state.pop("datamanager.train_ray_generator.image_coords", None)
             state.pop("datamanager.train_ray_generator.pose_optimizer.pose_adjustment", None)
             state.pop("datamanager.eval_ray_generator.image_coords", None)
             state.pop("datamanager.eval_ray_generator.pose_optimizer.pose_adjustment", None)
-        
         missing, unexpected = self.load_state_dict(state, strict=False)  # type: ignore
         print(f"Missing: {missing}")
         print(f"Unexpected: {unexpected}")

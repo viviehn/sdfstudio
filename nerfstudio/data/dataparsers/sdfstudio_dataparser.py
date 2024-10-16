@@ -541,7 +541,6 @@ class SDFStudio(DataParser):
         )
         return dataparser_outputs
 
-
     def load_sdf_samples(self, part, split):
         print(f'Loading sdf samples from part {part}')
         pnum = "40m" if split=="train" else "140k"
@@ -560,16 +559,24 @@ class SDFStudio(DataParser):
         k = int(4e7)
         # sdf_onsurface = np.zeros((k,3))
         # sdf_offsurface = np.zeros((k, 4))
+        return self.load_sdf_samples_from_path(path, offsurface_path=sdf_fname, split=split, part=part, reshape=True)
+
+    def load_sdf_samples_from_path(self, path, offsurface_path=None, split='train', part=0, reshape=True, get_point_colors=True):
         mesh = trimesh.load(path, process=False)
         sdf_onsurface = torch.from_numpy(mesh.vertices).float()
-        sdf_offsurface = read_sdf(sdf_fname)
         n_onsurface = sdf_onsurface.shape[0]
-        n_offsurface = sdf_offsurface.shape[0]
-        # sdf_samples = np.zeros((n_onsurface + n_offsurface, 4), dtype=np.float32)
+        if offsurface_path is not None:
+            sdf_offsurface = read_sdf(offsurface_path)
+            n_offsurface = sdf_offsurface.shape[0]
+        else:
+            n_offsurface = 0
+
         dim = 4 + self.config.use_point_color * 6
         sdf_samples = torch.zeros((n_onsurface + n_offsurface, dim)).float()
         sdf_samples[:n_onsurface, :3] = sdf_onsurface
-        sdf_samples[n_onsurface:, :4] = torch.from_numpy(sdf_offsurface * 1.0).float()
+
+        if offsurface_path is not None:
+            sdf_samples[n_onsurface:, :4] = torch.from_numpy(sdf_offsurface * 1.0).float()
 
 
         # w2gt = self.w2gt 
@@ -588,7 +595,7 @@ class SDFStudio(DataParser):
             self.bbox_min = tuple([i.item() for i in bbox_min])
             self.bbox_max = tuple([i.item() for i in bbox_max])
         # choices = self.choices
-        if self.config.use_point_color:
+        if self.config.use_point_color and get_point_colors:
             # rgb
             colors_onsurface = torch.from_numpy(mesh.colors[:, :3]).float() / 255.0
             # colors = torch.zeros_like(sdf_samples[:, :3])
@@ -613,11 +620,14 @@ class SDFStudio(DataParser):
         #sdf_samples = sdf_samples[None,...]
 
         # shuffle points
-        npoints_per_image = int(len(sdf_samples) // self.n_images)
-        ntotal_points = int(npoints_per_image * self.n_images)
-        print(self.n_images, npoints_per_image, ntotal_points)
-        choices = np.random.choice(sdf_samples.shape[0], size=ntotal_points, replace=False)
-        sdf_samples = sdf_samples[choices].reshape((self.n_images, npoints_per_image, -1))
-        print(sdf_samples.shape)
+        if reshape:
+            npoints_per_image = int(len(sdf_samples) // self.n_images)
+            ntotal_points = int(npoints_per_image * self.n_images)
+            print(self.n_images, npoints_per_image, ntotal_points)
+            choices = np.random.choice(sdf_samples.shape[0], size=ntotal_points, replace=False)
+            sdf_samples = sdf_samples[choices].reshape((self.n_images, npoints_per_image, -1))
+            print(sdf_samples.shape)
+        else:
+            sdf_samples = sdf_samples[:].reshape(len(sdf_samples), 1, -1).permute(1,0,2)
         return sdf_samples
 

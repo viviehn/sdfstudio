@@ -168,6 +168,7 @@ class SurfaceModel(Model):
         self.scene_contraction = SceneContraction(order=order)
         # Can we also use contraction for sdf?
         # Fields
+        print(self.num_train_data)
         self.field = self.config.sdf_field.setup(
             aabb=self.scene_box.aabb,
             spatial_distortion=self.scene_contraction,

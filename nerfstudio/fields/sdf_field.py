@@ -187,8 +187,16 @@ class SDFFieldConfig(FieldConfig):
     """whether to use positional encoding as input for geometric network"""
     vanilla_ngp: bool = False
     """whether to use positions (xyz & positional encoding) as input for geometric network"""
+    pop_geonet: bool = False
+    """whether to re-use pretrained geometric network"""
     fix_geonet: bool = False
     """whether to fix pretrained geometric network"""
+    pop_geometry_encoding: bool = True
+    """whether to train geometry encodings from scratch"""
+    fix_geometry_encoding: bool = False
+    """whether to fix pretrained geometric encodings"""
+    pop_appearance_embedding: bool = False
+    """whether to re-use appearance embeddings"""
 
 
 class SDFField(Field):
@@ -223,10 +231,10 @@ class SDFField(Field):
         self.divide_factor = self.config.divide_factor
 
         self.num_levels = self.config.num_levels
-        self.max_res = self.config.max_res 
-        self.base_res = self.config.base_res 
-        self.log2_hashmap_size = self.config.log2_hashmap_size 
-        self.features_per_level = self.config.hash_features_per_level 
+        self.max_res = self.config.max_res
+        self.base_res = self.config.base_res
+        self.log2_hashmap_size = self.config.log2_hashmap_size
+        self.features_per_level = self.config.hash_features_per_level
         use_hash = True
         smoothstep = self.config.hash_smoothstep
         self.growth_factor = np.exp((np.log(self.max_res) - np.log(self.base_res)) / (self.num_levels - 1))
@@ -236,12 +244,12 @@ class SDFField(Field):
             if self.config.vanilla_ngp:
                 self.encoding, in_dim = get_encoder(  #encoding,
                     "hashgrid",
-                    input_dim=3, 
-                    multires=6, 
+                    input_dim=3,
+                    multires=6,
                     degree=4,
-                    num_levels=self.num_levels, level_dim=self.features_per_level, 
+                    num_levels=self.num_levels, level_dim=self.features_per_level,
                     base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
-                    desired_resolution=self.max_res, 
+                    desired_resolution=self.max_res,
                     align_corners=False,
                     )
             else:
@@ -364,7 +372,6 @@ class SDFField(Field):
             self.specular_tint_pred = nn.Linear(self.config.geo_feat_dim, 3)
 
         # view dependent color network
-        dims = [self.config.hidden_dim_color for _ in range(self.config.num_layers_color)]
         if self.config.use_diffuse_color:
             in_dim = (
                 self.direction_encoding.get_out_dim()
@@ -383,6 +390,20 @@ class SDFField(Field):
         if self.config.use_n_dot_v:
             in_dim += 1
 
+        self.color_in_dim = in_dim
+
+        self.build_color_network(in_dim)
+
+
+        self.softplus = nn.Softplus(beta=100)
+        self.relu = nn.ReLU()
+        self.sigmoid = torch.nn.Sigmoid()
+
+        self._cos_anneal_ratio = 1.0
+        self.numerical_gradients_delta = 0.0001
+
+    def build_color_network(self, in_dim):
+        dims = [self.config.hidden_dim_color for _ in range(self.config.num_layers_color)]
         dims = [in_dim] + dims + [3]
         self.num_layers_color = len(dims)
 
@@ -397,13 +418,6 @@ class SDFField(Field):
             # print("=======", lin.weight.shape)
             print("Not using weight norm of color network")
             setattr(self, "clin" + str(l), lin)
-
-        self.softplus = nn.Softplus(beta=100)
-        self.relu = nn.ReLU()
-        self.sigmoid = torch.nn.Sigmoid()
-
-        self._cos_anneal_ratio = 1.0
-        self.numerical_gradients_delta = 0.0001
 
     def set_cos_anneal_ratio(self, anneal: float) -> None:
         """Set the anneal value for the proposal network."""
@@ -670,68 +684,74 @@ class SDFField(Field):
 
         return rgb
 
+    def get_outputs_for_sdf_training(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False, sdf_only=False, need_rgb=False):
+        inputs = ray_samples[:, :3]
+        # compute gradient in constracted space
+        inputs.requires_grad_(True)
+        with torch.enable_grad():
+            h = self.forward_geonetwork(inputs)
+            sdf, geo_feature = torch.split(h, [1, self.config.geo_feat_dim], dim=-1)
+        outputs = {
+                FieldHeadNames.SDF: sdf,
+            }
+
+        # if self.config.curvature_loss_multi== 0.0:
+        # if True: #self.config.eikonal_loss_mult == 0.0 and 
+        if ray_samples.shape[1] == 4 and sdf_only:
+            return outputs
+
+        if self.config.use_numerical_gradients:
+            gradients, sampled_sdf = self.gradient(
+                inputs,
+                skip_spatial_distortion=True,
+                return_sdf=True,
+            )
+            sampled_sdf = sampled_sdf.permute(1, 0).contiguous()
+        else:
+            d_output = torch.ones_like(sdf, requires_grad=False, device=sdf.device)
+            gradients = torch.autograd.grad(
+                outputs=sdf,
+                inputs=inputs,
+                grad_outputs=d_output,
+                create_graph=True,
+                retain_graph=True,
+                only_inputs=True,
+            )[0]
+            sampled_sdf = None
+        if ray_samples.shape[1] == 4 and need_rgb == False:
+            outputs.update({
+                    FieldHeadNames.GRADIENT: gradients,
+                    "sampled_sdf": sampled_sdf,
+                })
+            return outputs
+        if ray_samples.shape[1] > 4:
+            mask = (ray_samples[:, 3] == 0) & (ray_samples[:, 3:].sum(1) != 0)
+            directions = ray_samples[:, 7:10][mask]
+            noise = (torch.rand((mask.sum(), 3)).to(directions.device) - 0.5) * 0.1
+            directions = F.normalize(directions + noise, p=2, dim=-1)
+            camera_indices = torch.zeros_like(directions[:, 0]).int()
+            rgb = self.get_colors(inputs[mask], directions, gradients[mask], geo_feature[mask], camera_indices)
+        else:
+            directions = gradients
+            directions = F.normalize(directions, p=2, dim=-1)
+            camera_indices = torch.zeros_like(directions[:, 0]).int()
+            rgb = self.get_colors(inputs, directions, gradients, geo_feature, camera_indices)
+
+        density = self.laplace_density(sdf)
+        outputs.update({
+                FieldHeadNames.RGB: rgb,
+                FieldHeadNames.DENSITY: density,
+            })
+        return outputs
+
     def get_outputs(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False, sdf_only=False, need_rgb=False):
         # TODO:  make this generalized/based on arguments
         """compute output of ray samples"""
+
         if isinstance(ray_samples, torch.Tensor):
-            inputs = ray_samples[:, :3]
-            # compute gradient in constracted space
-            inputs.requires_grad_(True)
-            with torch.enable_grad():
-                h = self.forward_geonetwork(inputs)
-                sdf, geo_feature = torch.split(h, [1, self.config.geo_feat_dim], dim=-1)
-            outputs = {
-                    FieldHeadNames.SDF: sdf,
-                }
-
-            # if self.config.curvature_loss_multi== 0.0:
-            # if True: #self.config.eikonal_loss_mult == 0.0 and 
-            if ray_samples.shape[1] == 4 and sdf_only:
-                return outputs
-
-            if self.config.use_numerical_gradients:
-                gradients, sampled_sdf = self.gradient(
-                    inputs,
-                    skip_spatial_distortion=True,
-                    return_sdf=True,
-                )
-                sampled_sdf = sampled_sdf.permute(1, 0).contiguous()
-            else:
-                d_output = torch.ones_like(sdf, requires_grad=False, device=sdf.device)
-                gradients = torch.autograd.grad(
-                    outputs=sdf,
-                    inputs=inputs,
-                    grad_outputs=d_output,
-                    create_graph=True,
-                    retain_graph=True,
-                    only_inputs=True,
-                )[0]
-                sampled_sdf = None
-            if ray_samples.shape[1] == 4 and need_rgb == False:
-                outputs.update({
-                        FieldHeadNames.GRADIENT: gradients,
-                        "sampled_sdf": sampled_sdf,
-                    })
-                return outputs
-            if ray_samples.shape[1] > 4:
-                mask = (ray_samples[:, 3] == 0) & (ray_samples[:, 3:].sum(1) != 0)
-                directions = ray_samples[:, 7:10][mask]
-                noise = (torch.rand((mask.sum(), 3)).to(directions.device) - 0.5) * 0.1
-                directions = F.normalize(directions + noise, p=2, dim=-1)
-                camera_indices = torch.zeros_like(directions[:, 0]).int()
-                rgb = self.get_colors(inputs[mask], directions, gradients[mask], geo_feature[mask], camera_indices)
-            else:
-                directions = gradients
-                directions = F.normalize(directions, p=2, dim=-1)
-                camera_indices = torch.zeros_like(directions[:, 0]).int()
-                rgb = self.get_colors(inputs, directions, gradients, geo_feature, camera_indices)
-
-            density = self.laplace_density(sdf)
-            outputs.update({
-                    FieldHeadNames.RGB: rgb,
-                    FieldHeadNames.DENSITY: density,
-                })
+            outputs = self.get_outputs_for_sdf_training(ray_samples, return_alphas, return_occupancy, sdf_only, need_rgb)
             return outputs
+
         if ray_samples.camera_indices is None:
             raise AttributeError("Camera indices are not provided.")
 

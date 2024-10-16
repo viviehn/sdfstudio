@@ -10,20 +10,16 @@ LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
 
 DATA_ID=$1
 MODEL_NAME=neus-facto-angelo
-
-### CHECK ME ###
-EXP_CATEGORY=core
-EXP_NAME=$DATA_ID/rgb_training
-#################
+EXP_CATEGORY=retrain-encodings
+EXP_NAME=$DATA_ID/sdf-sample-training-retrain-mlp-fix-enc
 
 mkdir -p $LOCAL_OUTDIR
 
-
 ns-train $MODEL_NAME \
-    --output-dir $LOCAL_OUTDIR \
+    --output-dir $LOCAL_OUTDIR\
     --viewer.quit-on-train-completion True \
-    --trainer.max-num-iterations 200001  --trainer.steps_per_save 10000\
-    --trainer.steps-per-eval-image 10000\
+    --trainer.max-num-iterations 6101  --trainer.steps_per_save 1000\
+    --trainer.steps-per-eval-image 1000 \
     --trainer.steps_per_eval_batch 1000 \
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
@@ -40,14 +36,32 @@ ns-train $MODEL_NAME \
     --pipeline.model.sdf-field.vanilla-ngp True\
     --pipeline.model.sdf-field.geometric-init False\
     --pipeline.model.sdf-field.bias 0.8\
-    --pipeline.model.sdf-field.fix-geonet False \
+    --pipeline.model.sdf-field.pop-appearance-embedding True\
+    --pipeline.model.sdf-field.fix-geonet False\
+    --pipeline.model.sdf-field.pop-geonet True\
+    --pipeline.model.sdf-field.pop-geometry-encoding False\
+    --pipeline.model.sdf-field.fix-geometry-encoding True\
+    --pipeline.model.sdf-field.use-numerical-gradients False\
+    --optimizers.fields-geometry.optimizer.lr .0001 \
+    --optimizers.fields-geometry.optimizer.betas 0.9 0.99 \
+    --optimizers.fields-geometry.scheduler.warm-up-end 0 \
+    --optimizers.fields-geometry.scheduler.milestones 3660 \
     --pipeline.model.background-model none\
+    --pipeline.model.sdf_sample_training True \
+    --pipeline.model.sparse_points_sdf_loss_mult 1.0\
+    --pipeline.model.curvature-loss-warmup-steps 2000\
+    --pipeline.model.curvature-loss-multi 0.0\
+    --pipeline.model.eikonal-loss-mult 0.0\
+    --pipeline.datamanager.train_num_rays_per_batch 2\
     --pipeline.datamanager.train_num_images_to_sample_from -1\
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
-    --pipeline.datamanager.eval_num_images_to_sample_from 8 --vis tensorboard\
+    --pipeline.datamanager.eval_num_images_to_sample_from 1 --vis tensorboard\
     --timestamp $TMP_STR \
+    --trainer.load-dir /n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/ngp-sdf-baseline/785e7504b9/neus-facto-angelo/20241004_132907_305/sdfstudio_models\
     --experiment-name $EXP_NAME     sdfstudio-data \
     --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio \
+    --include_sdf_samples True \
+    --use_point_color True \
 
 FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR
 RESOLUTION=1024
