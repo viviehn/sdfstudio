@@ -63,32 +63,42 @@ class SplitField(SDFField):
         num_images: int,
         use_average_appearance_embedding: bool = False,
         spatial_distortion: Optional[SpatialDistortion] = None,
+        build_encoders: bool = True
     ) -> None:
-        super().__init__(config, aabb, num_images, use_average_appearance_embedding, spatial_distortion)
+        super().__init__(config, aabb, num_images, use_average_appearance_embedding, spatial_distortion, build_color_network=False)
 
-        geom_encoding = self.encoding
-        #self.encoding = None
-        appearance_encoding, in_dim = get_encoder(  #encoding,
-            "hashgrid",
-            input_dim=3,
-            multires=6,
-            degree=4,
-            num_levels=self.num_levels, level_dim=self.features_per_level,
-            base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
-            desired_resolution=self.max_res,
-            align_corners=False,
-            )
+        if build_encoders:
+            geom_encoding, in_dim = get_encoder(  #encoding,
+                "hashgrid",
+                input_dim=3,
+                multires=6,
+                degree=4,
+                num_levels=self.num_levels, level_dim=self.features_per_level,
+                base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
+                desired_resolution=self.max_res,
+                align_corners=False,
+                )
+            appearance_encoding, in_dim = get_encoder(  #encoding,
+                "hashgrid",
+                input_dim=3,
+                multires=6,
+                degree=4,
+                num_levels=self.num_levels, level_dim=self.features_per_level,
+                base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
+                desired_resolution=self.max_res,
+                align_corners=False,
+                )
 
-        self.encoder_dict = nn.ModuleDict({
-                'geometry': geom_encoding,
-                'appearance': appearance_encoding,
-                })
-        self.encoding = self.encoder_dict['geometry']
+            self.encoder_dict = nn.ModuleDict({
+                    'geometry': geom_encoding,
+                    'appearance': appearance_encoding,
+                    })
+            self.geometry_encoding = self.encoder_dict['geometry']
+            self.appearance_encoding = self.encoder_dict['appearance']
+            self.encoding = None
 
-        print("Using SplitField, rebuilding color network to input additional appearance embedding features")
 
         self.color_in_dim = self.color_in_dim + self.num_levels*self.features_per_level
-
         self.build_color_network(self.color_in_dim)
 
     def get_colors(self, points, directions, gradients, geo_features, camera_indices):
@@ -112,7 +122,7 @@ class SplitField(SDFField):
             # positions = inputs / 2
         else:
             positions = (points + 2.0) / 4.0
-        appearance_feature = self.encoder_dict['appearance'](positions)
+        appearance_feature = self.appearance_encoding(positions)
         if not self.config.vanilla_ngp:
             appearance_feature = appearance_feature * self.hash_encoding_mask.to(appearance_feature.device)
 

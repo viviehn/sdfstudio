@@ -111,6 +111,7 @@ class NeuSFactoModel(NeuSModel):
     def populate_modules(self):
         """Set the fields and modules."""
         super().populate_modules()
+        print(self.kwargs)
 
         self.density_fns = []
         num_prop_nets = self.config.num_proposal_iterations

@@ -9,19 +9,38 @@ echo $0
 TMP_STR=$(date +%Y%m%d_%H%M%S)_$RANDOM
 LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
 
-DATA_ID=$1
-MODEL_NAME=neus-facto-angelo
-EXP_CATEGORY=sdf_baseline
-EXP_NAME=$DATA_ID
+MODEL_NAME=nfa-multi
+EXP_CATEGORY=multiscene
+EXP_NAME=31_8b_21_78
+BASE_OUTDIR=/n/fs/3d-indoor/sdfstudio_outputs/3d_indoor
 
 mkdir -p $LOCAL_OUTDIR
+#config=/n/fs/3d-indoor/vivien_data/data/scenes.txt
+#config=/n/fs/3d-indoor/data/002_scenes.txt
+#readarray -t DATA_IDS < $config
+
+#DATA_IDS=("3f1e1610de" "8b5caf3398" "210f741378" "785e7504b9" "bfd3fd54d2")
+#DATA_IDS=("3f1e1610de" "8b5caf3398" "210f741378" "785e7504b9")
+DATA_IDS=("3f1e1610de")
+
+LIST_OF_SCENES=""
+
+for data_id in "${DATA_IDS[@]}";
+do
+    echo $data_id
+    LIST_OF_SCENES+=" /n/fs/3d-indoor/data/$data_id/dslr/sdfstudio"
+done
+
+echo $LIST_OF_SCENES
 
 ns-train $MODEL_NAME \
-    --output-dir $LOCAL_OUTDIR\
     --viewer.quit-on-train-completion True \
-    --trainer.max-num-iterations 6101  --trainer.steps_per_save 1000\
-    --trainer.steps-per-eval-image 1000 \
-    --trainer.steps_per_eval_batch 1000 \
+    --output-dir $LOCAL_OUTDIR\
+    --trainer.max-num-iterations 10001  --trainer.steps_per_save 2000\
+    --trainer.steps-per-eval-image 1000\
+    --trainer.steps-per-eval-batch 1000\
+    --trainer.steps-per-eval-all-images 100000\
+    --logging.steps-per-log 100\
     --pipeline.model.sdf-field.inside-outside True     \
     --pipeline.model.sdf-field.num-layers 2     \
     --pipeline.model.sdf-field.hidden-dim 64     \
@@ -37,13 +56,12 @@ ns-train $MODEL_NAME \
     --pipeline.model.sdf-field.vanilla-ngp True\
     --pipeline.model.sdf-field.geometric-init False\
     --pipeline.model.sdf-field.bias 0.8\
-    --pipeline.model.sdf-field.fix-geonet False\
-    --pipeline.model.sdf-field.use-numerical-gradients False\
+    --pipeline.model.sdf-field.fix-geonet False \
+    --pipeline.model.background-model none\
     --optimizers.fields-geometry.optimizer.lr .0001 \
     --optimizers.fields-geometry.optimizer.betas 0.9 0.99 \
     --optimizers.fields-geometry.scheduler.warm-up-end 0 \
     --optimizers.fields-geometry.scheduler.milestones 3660 \
-    --pipeline.model.background-model none\
     --pipeline.model.sdf_sample_training True \
     --pipeline.model.sparse_points_sdf_loss_mult 1.0\
     --pipeline.model.curvature-loss-warmup-steps 2000\
@@ -53,19 +71,19 @@ ns-train $MODEL_NAME \
     --pipeline.datamanager.train_num_images_to_sample_from -1\
     --pipeline.datamanager.train_num_times_to_repeat_images -1\
     --pipeline.datamanager.eval_num_images_to_sample_from 1 --vis tensorboard\
+    --experiment-name $EXP_NAME\
     --timestamp $TMP_STR \
-    --experiment-name $EXP_NAME sdfstudio-data \
-    --data /n/fs/3d-indoor/data/$DATA_ID/dslr/sdfstudio \
-    --include_sdf_samples True \
-    --use_point_color True \
+    --pipeline.datamanager.dataparser.multiscene-data $LIST_OF_SCENES \
+    --pipeline.datamanager.dataparser.include-sdf-samples True \
+    --pipeline.datamanager.dataparser.use_point_color True \
 
-FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$DATA_ID/$MODEL_NAME/$TMP_STR
-RESOLUTION=1024
-ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
-    --resolution $RESOLUTION\
-    --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
-    --use-point-color True \
+#FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR
+#RESOLUTION=1024
+#ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
+#    --resolution $RESOLUTION\
+#    --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
+#    --use-point-color True \
 
-FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/$EXP_CATEGORY/$EXP_NAME/$MODEL_NAME
+FINAL_PATH=$BASE_OUTDIR/$EXP_CATEGORY/$EXP_NAME/$MODEL_NAME
 mkdir -p $FINAL_PATH
 mv $LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR $FINAL_PATH

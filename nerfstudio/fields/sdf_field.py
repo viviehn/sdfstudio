@@ -215,6 +215,7 @@ class SDFField(Field):
         num_images: int,
         use_average_appearance_embedding: bool = False,
         spatial_distortion: Optional[SpatialDistortion] = None,
+        build_color_network: bool = True,
     ) -> None:
         super().__init__()
         self.config = config
@@ -242,7 +243,7 @@ class SDFField(Field):
         if self.config.encoding_type == "hash":
             # feature encoding
             if self.config.vanilla_ngp:
-                self.encoding, in_dim = get_encoder(  #encoding,
+                self.geometry_encoding, in_dim = get_encoder(  #encoding,
                     "hashgrid",
                     input_dim=3,
                     multires=6,
@@ -253,7 +254,7 @@ class SDFField(Field):
                     align_corners=False,
                     )
             else:
-                self.encoding = tcnn.Encoding(
+                self.geometry_encoding = tcnn.Encoding(
                     n_input_dims=3,
                     encoding_config={
                         "otype": "HashGrid" if use_hash else "DenseGrid",
@@ -265,7 +266,7 @@ class SDFField(Field):
                         "interpolation": "Smoothstep" if smoothstep else "Linear",
                     },
                 )
-                in_dim = self.encoding.n_output_dims
+                in_dim = self.geometry_encoding.n_output_dims
             self.hash_encoding_mask = torch.ones(
                 self.num_levels * self.features_per_level,
                 dtype=torch.float32,
@@ -273,7 +274,7 @@ class SDFField(Field):
 
         elif self.config.encoding_type == "periodic":
             print("using periodic encoding")
-            self.encoding = PeriodicVolumeEncoding(
+            self.geometry_encoding = PeriodicVolumeEncoding(
                 num_levels=self.num_levels,
                 min_res=self.base_res,
                 max_res=self.max_res,
@@ -283,7 +284,7 @@ class SDFField(Field):
             )
         elif self.config.encoding_type == "tensorf_vm":
             print("using tensor vm")
-            self.encoding = TensorVMEncoding(128, 24, smoothstep=smoothstep)
+            self.geometry_encoding = TensorVMEncoding(128, 24, smoothstep=smoothstep)
 
         # we concat inputs position ourselves
         self.position_encoding = NeRFEncoding(
@@ -392,7 +393,8 @@ class SDFField(Field):
 
         self.color_in_dim = in_dim
 
-        self.build_color_network(in_dim)
+        if build_color_network:
+            self.build_color_network(in_dim)
 
 
         self.softplus = nn.Softplus(beta=100)
@@ -443,12 +445,12 @@ class SDFField(Field):
             else:
                 positions = (inputs + 2.0) / 4.0
             # positions = (inputs + 1.0) / 2.0
-            feature = self.encoding(positions)
+            feature = self.geometry_encoding(positions)
             # mask feature
             if not self.config.vanilla_ngp:
                 feature = feature * self.hash_encoding_mask.to(feature.device)
         else:
-            feature = torch.zeros_like(inputs[:, :1].repeat(1, self.encoding.n_output_dims))
+            feature = torch.zeros_like(inputs[:, :1].repeat(1, self.geometry_encoding.n_output_dims))
 
         if not self.config.vanilla_ngp:
             pe = self.position_encoding(inputs)

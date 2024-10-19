@@ -266,7 +266,7 @@ class VanillaPipeline(Pipeline):
         Args:
             step: current iteration step to update sampler if using DDP (distributed)
         """
-        ray_bundle, batch = self.datamanager.next_train(step, sdf_training=self.model.config.sdf_sample_training)
+        ray_bundle, batch = self.datamanager.next_train(step)
         if self.model.config.sdf_sample_training:
             model_outputs = self._model(batch['sparse_sdf_samples'].to(self.device))
         else:
@@ -304,7 +304,7 @@ class VanillaPipeline(Pipeline):
             step: current iteration step
         """
         self.eval()
-        ray_bundle, batch = self.datamanager.next_eval(step, sdf_training=self.model.config.sdf_sample_training)
+        ray_bundle, batch = self.datamanager.next_eval(step)
         if self.model.config.sdf_sample_training:
             model_outputs = self._model(batch['sparse_sdf_samples'].to(self.device))
         else:

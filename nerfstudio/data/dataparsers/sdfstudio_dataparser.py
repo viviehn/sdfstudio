@@ -206,6 +206,8 @@ class SDFStudioDataParserConfig(DataParserConfig):
     """target class to instantiate"""
     data: Path = Path("data/DTU/scan65")
     """Directory specifying location of data."""
+    multiscene_data: List[Path] = field(default_factory=list)
+    """If training on multiple scenes at a time, a list of paths should be provided"""
     include_mono_prior: bool = False
     """whether or not to load monocular depth and normal """
     include_sensor_depth: bool = False

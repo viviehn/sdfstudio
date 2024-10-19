@@ -423,7 +423,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
             shuffle=False,
         )
 
-    def next_train(self, step: int, sdf_training=False) -> Tuple[RayBundle, Dict]:
+    def next_train(self, step: int) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the train dataloader."""
         self.train_count += 1
         image_batch = next(self.iter_train_image_dataloader)
@@ -432,7 +432,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         ray_bundle = self.train_ray_generator(ray_indices)
         return ray_bundle, batch
 
-    def next_eval(self, step: int, sdf_training=False) -> Tuple[RayBundle, Dict]:
+    def next_eval(self, step: int) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the eval dataloader."""
         self.eval_count += 1
         image_batch = next(self.iter_eval_image_dataloader)

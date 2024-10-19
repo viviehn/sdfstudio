@@ -54,6 +54,6 @@ ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
     --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
     --use-point-color True \
 
-FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d-indoor/$EXP_CATEGORY/$EXP_NAME/$MODEL_NAME
+FINAL_PATH=/n/fs/3d-indoor/sdfstudio_outputs/3d_indoor/$EXP_CATEGORY/$EXP_NAME/$MODEL_NAME
 mkdir -p $FINAL_PATH
 mv $LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR $FINAL_PATH
