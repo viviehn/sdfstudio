@@ -40,7 +40,7 @@ class FieldConfig(InstantiateConfig):
 class Field(nn.Module):
     """Base class for fields."""
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
         super().__init__()
         self._sample_locations = None
         self._density_before_activation = None

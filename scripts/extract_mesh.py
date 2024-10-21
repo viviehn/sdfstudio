@@ -23,6 +23,7 @@ from nerfstudio.utils.marching_cubes import (
 from nerfstudio.utils.io import load_from_json
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from pdb import set_trace as pause
+from nerfstudio.pipelines.multiscene_pipeline import MultiscenePipeline
 
 CONSOLE = Console(width=120)
 
@@ -64,24 +65,11 @@ class ExtractMesh:
     torch_precision: Literal["highest", "high"] = "high"
     use_point_color: bool = False
     """whether save mesh with color"""
+    scene_id: str = ""
+    """scene id for multiscene models"""
+    all_scenes: bool = True
 
-    def main(self) -> None:
-        """Main function."""
-        torch.set_float32_matmul_precision(self.torch_precision)
-        assert str(self.output_path)[-4:] == ".ply"
-        self.output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        config, pipeline, _ = eval_setup(self.load_config)
-        data_path = config.pipeline.datamanager.dataparser.data
-        config_is_json = data_path.suffix == '.json'
-        if config_is_json:
-            meta = load_from_json(data_path)
-        else:
-            meta = load_from_json(data_path / "meta_data.json")
-        w2gt = np.array(meta["worldtogt"])
-        self.bounding_box_min = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_min
-        self.bounding_box_max = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_max
-
+    def run_extract_mesh():
 
         CONSOLE.print("Extract mesh with marching cubes and may take a while")
 
@@ -151,6 +139,118 @@ class ExtractMesh:
                 use_point_color=self.use_point_color,
                 get_color=lambda x: pipeline.model.field.get_outputs(x, need_rgb=True)[FieldHeadNames.RGB],
             )
+
+    def main(self) -> None:
+        """Main function."""
+        torch.set_float32_matmul_precision(self.torch_precision)
+        assert str(self.output_path)[-4:] == ".ply"
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        config, pipeline, _ = eval_setup(self.load_config)
+
+
+        if isinstance(pipeline, MultiscenePipeline):
+            if self.all_scenes:
+                scene_ids = pipeline.datamanager.scene_ids
+            if not self.all_scenes:
+                assert len(self.scene_id) > 0, "[ERROR] Pipeline is MultiscenePipeline, but no scene id was specified"
+                scene_ids = [self.scene_id]
+            for scene_id in scene_ids:
+                data_path = pipeline.datamanager.scenes[scene_id]
+                config_is_json = data_path.suffix == '.json'
+                if config_is_json:
+                    meta = load_from_json(data_path)
+                else:
+                    meta = load_from_json(data_path / "meta_data.json")
+                w2gt = np.array(meta["worldtogt"])
+                self.bounding_box_min = pipeline.datamanager.train_image_dataloaders[scene_id].dataset._dataparser_outputs.bbox_min
+                self.bounding_box_max = pipeline.datamanager.train_image_dataloaders[scene_id].dataset._dataparser_outputs.bbox_max
+                pipeline.model.field.geometry_encoding = pipeline.model.field.geometry_encodings[scene_id]
+                pipeline.model.field.appearance_encoding = pipeline.model.field.appearance_encodings[scene_id]
+                self.output_path = f"{scene_id}-mesh.ply"
+                CONSOLE.print("Extract mesh with marching cubes and may take a while")
+
+                if self.create_visibility_mask:
+                    assert self.resolution % 512 == 0
+
+                    coarse_mask = pipeline.get_visibility_mask(
+                        self.visibility_grid_resolution, self.valid_points_thres, self.sub_sample_factor
+                    )
+
+                    def inv_contract(x):
+                        mag = torch.linalg.norm(x, ord=pipeline.model.scene_contraction.order, dim=-1)
+                        mask = mag >= 1
+                        x_new = x.clone()
+                        x_new[mask] = (1 / (2 - mag[mask][..., None])) * (x[mask] / mag[mask][..., None])
+                        return x_new
+
+                    if self.save_visibility_grid:
+                        offset = torch.linspace(-2.0, 2.0, 512)
+                        x, y, z = torch.meshgrid(offset, offset, offset, indexing="ij")
+                        offset_cube = torch.stack([x, y, z], dim=-1).reshape(-1, 3).to(coarse_mask.device)
+                        points = offset_cube[coarse_mask.reshape(-1) > 0]
+                        points = inv_contract(points)
+                        save_points("mask.ply", points.cpu().numpy())
+                        torch.save(coarse_mask, "coarse_mask.pt")
+
+                    get_surface_sliding_with_contraction(
+                        sdf=lambda x: (
+                            pipeline.model.field.forward_geonetwork(x)[:, 0] - self.marching_cube_threshold
+                        ).contiguous(),
+                        resolution=self.resolution,
+                        bounding_box_min=self.bounding_box_min,
+                        bounding_box_max=self.bounding_box_max,
+                        coarse_mask=coarse_mask,
+                        output_path=f'{self.output_path[:-4]}-{scene_id}.ply',
+                        simplify_mesh=self.simplify_mesh,
+                        inv_contraction=inv_contract,
+                    )
+                    return
+
+                if self.is_occupancy:
+                    # for unisurf
+                    get_surface_occupancy(
+                        occupancy_fn=lambda x: torch.sigmoid(
+                            10 * pipeline.model.field.forward_geonetwork(x)[:, 0].contiguous()
+                        ),
+                        resolution=self.resolution,
+                        bounding_box_min=self.bounding_box_min,
+                        bounding_box_max=self.bounding_box_max,
+                        level=0.5,
+                        device=pipeline.model.device,
+                        output_path=f'{self.output_path[:-4]}-{scene_id}.ply',
+                    )
+                else:
+                    assert self.resolution % 512 == 0
+                    print(self.bounding_box_min, self.bounding_box_max)
+                    # for sdf we can multi-scale extraction.
+                    get_surface_sliding(
+                        sdf=lambda x: pipeline.model.field.forward_geonetwork(x)[:, 0].contiguous(),
+                        resolution=self.resolution,
+                        bounding_box_min=self.bounding_box_min,
+                        bounding_box_max=self.bounding_box_max,
+                        coarse_mask=pipeline.model.scene_box.coarse_binary_gird,
+                        output_path=f'{self.output_path[:-4]}-{scene_id}.ply',
+                        simplify_mesh=self.simplify_mesh,
+                        w2gt=w2gt,
+                        use_point_color=self.use_point_color,
+                        get_color=lambda x: pipeline.model.field.get_outputs(x, need_rgb=True)[FieldHeadNames.RGB],
+                    )
+        else:
+            data_path = config.pipeline.datamanager.dataparser.data
+
+            config_is_json = data_path.suffix == '.json'
+            if config_is_json:
+                meta = load_from_json(data_path)
+            else:
+                meta = load_from_json(data_path / "meta_data.json")
+            w2gt = np.array(meta["worldtogt"])
+            self.bounding_box_min = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_min
+            self.bounding_box_max = pipeline.datamanager.train_image_dataloader.dataset._dataparser_outputs.bbox_max
+
+            run_extract_mesh()
+
+
 
 
 def entrypoint():

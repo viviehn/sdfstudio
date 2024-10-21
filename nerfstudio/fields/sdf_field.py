@@ -216,6 +216,7 @@ class SDFField(Field):
         use_average_appearance_embedding: bool = False,
         spatial_distortion: Optional[SpatialDistortion] = None,
         build_color_network: bool = True,
+        **kwargs
     ) -> None:
         super().__init__()
         self.config = config

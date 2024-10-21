@@ -330,6 +330,8 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
 
         self.train_dataset = self.create_train_dataset()
         self.eval_dataset = self.create_eval_dataset()
+        #self.num_scenes = 1 for multiscene debugging
+        #self.scene_ids = ['785e7504b9']
         super().__init__()
 
     def create_train_dataset(self) -> InputDataset:

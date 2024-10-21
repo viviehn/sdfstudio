@@ -83,27 +83,7 @@ class MultisceneSplitField(SplitField):
         self.geometry_encodings = nn.ModuleDict(self.geometry_encodings)
         self.appearance_encodings = nn.ModuleDict(self.appearance_encodings)
 
-        #self.geometry_encoding = self.geometry_encodings[self.scene_ids[0]]
-        #self.appearance_encoding = self.appearance_encodings[self.scene_ids[0]]
-        self.geometry_encoding, in_dim = get_encoder(
-            "hashgrid",
-            input_dim=3,
-            multires=6,
-            degree=4,
-            num_levels=self.num_levels, level_dim=self.features_per_level,
-            base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
-            desired_resolution=self.max_res,
-            align_corners=False,
-            )
-        self.appearance_encoding, in_dim = get_encoder(
-            "hashgrid",
-            input_dim=3,
-            multires=6,
-            degree=4,
-            num_levels=self.num_levels, level_dim=self.features_per_level,
-            base_resolution=self.base_res, log2_hashmap_size=self.log2_hashmap_size,
-            desired_resolution=self.max_res,
-            align_corners=False,
-            )
+        self.geometry_encoding = self.geometry_encodings[self.scene_ids[0]]
+        self.appearance_encoding = self.appearance_encodings[self.scene_ids[0]]
         self.encoding = None
 

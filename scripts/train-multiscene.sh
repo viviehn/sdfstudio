@@ -11,7 +11,7 @@ LOCAL_OUTDIR=/scratch/vivienn/outputs/$TMP_STR/
 
 MODEL_NAME=nfa-multi
 EXP_CATEGORY=multiscene
-EXP_NAME=31_8b_21_78
+EXP_NAME=$5
 BASE_OUTDIR=/n/fs/3d-indoor/sdfstudio_outputs/3d_indoor
 
 mkdir -p $LOCAL_OUTDIR
@@ -21,7 +21,10 @@ mkdir -p $LOCAL_OUTDIR
 
 #DATA_IDS=("3f1e1610de" "8b5caf3398" "210f741378" "785e7504b9" "bfd3fd54d2")
 #DATA_IDS=("3f1e1610de" "8b5caf3398" "210f741378" "785e7504b9")
-DATA_IDS=("3f1e1610de")
+DATA_IDS=($1 $2 $3 $4)
+#DATA_IDS=("8b5caf3398" "3f1e1610de")
+#DATA_IDS=("3f1e1610de")
+#DATA_IDS=("785e7504b9")
 
 LIST_OF_SCENES=""
 
@@ -37,7 +40,7 @@ ns-train $MODEL_NAME \
     --viewer.quit-on-train-completion True \
     --output-dir $LOCAL_OUTDIR\
     --trainer.max-num-iterations 10001  --trainer.steps_per_save 2000\
-    --trainer.steps-per-eval-image 1000\
+    --trainer.steps-per-eval-image 500\
     --trainer.steps-per-eval-batch 1000\
     --trainer.steps-per-eval-all-images 100000\
     --logging.steps-per-log 100\
@@ -57,6 +60,7 @@ ns-train $MODEL_NAME \
     --pipeline.model.sdf-field.geometric-init False\
     --pipeline.model.sdf-field.bias 0.8\
     --pipeline.model.sdf-field.fix-geonet False \
+    --pipeline.model.sdf-field.use-numerical-gradients False\
     --pipeline.model.background-model none\
     --optimizers.fields-geometry.optimizer.lr .0001 \
     --optimizers.fields-geometry.optimizer.betas 0.9 0.99 \
@@ -73,16 +77,21 @@ ns-train $MODEL_NAME \
     --pipeline.datamanager.eval_num_images_to_sample_from 1 --vis tensorboard\
     --experiment-name $EXP_NAME\
     --timestamp $TMP_STR \
-    --pipeline.datamanager.dataparser.multiscene-data $LIST_OF_SCENES \
     --pipeline.datamanager.dataparser.include-sdf-samples True \
     --pipeline.datamanager.dataparser.use_point_color True \
+    --pipeline.datamanager.dataparser.multiscene-data $LIST_OF_SCENES \
+    #sdfstudio-data --data /n/fs/3d-indoor/data/785e7504b9/dslr/sdfstudio \
+    #--include_sdf_samples True \
+    #--use_point_color True \
 
-#FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR
-#RESOLUTION=1024
-#ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
-#    --resolution $RESOLUTION\
-#    --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
-#    --use-point-color True \
+
+FULL_OUTPUT_PATH=$LOCAL_OUTDIR/$EXP_NAME/$MODEL_NAME/$TMP_STR
+RESOLUTION=1024
+ns-extract-mesh --load-config $FULL_OUTPUT_PATH/config.yml \
+    --resolution $RESOLUTION\
+    --output-path $FULL_OUTPUT_PATH/$RESOLUTION-mesh.ply \
+    --use-point-color True \
+    --all_scenes True \
 
 FINAL_PATH=$BASE_OUTDIR/$EXP_CATEGORY/$EXP_NAME/$MODEL_NAME
 mkdir -p $FINAL_PATH

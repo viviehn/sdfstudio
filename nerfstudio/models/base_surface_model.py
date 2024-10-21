@@ -168,23 +168,14 @@ class SurfaceModel(Model):
         self.scene_contraction = SceneContraction(order=order)
         # Can we also use contraction for sdf?
         # Fields
-        print(self.num_train_data)
         print(self.kwargs)
-        if 'scene_ids' in self.kwargs.keys():
-            self.field = self.config.sdf_field.setup(
-                aabb=self.scene_box.aabb,
-                spatial_distortion=self.scene_contraction,
-                num_images=self.num_train_data,
-                use_average_appearance_embedding=self.config.use_average_appearance_embedding,
-                **self.kwargs
-            )
-        else:
-            self.field = self.config.sdf_field.setup(
-                aabb=self.scene_box.aabb,
-                spatial_distortion=self.scene_contraction,
-                num_images=self.num_train_data,
-                use_average_appearance_embedding=self.config.use_average_appearance_embedding,
-            )
+        self.field = self.config.sdf_field.setup(
+            aabb=self.scene_box.aabb,
+            spatial_distortion=self.scene_contraction,
+            num_images=self.num_train_data,
+            use_average_appearance_embedding=self.config.use_average_appearance_embedding,
+            **self.kwargs
+        )
 
         # Collider
         if self.scene_box.collider_type == "near_far":

@@ -156,7 +156,7 @@ class MultisceneDataManager(VanillaDataManager):
             train_dataset = self.train_datasets[scene_id]
             train_image_dataloader = CacheDataloader(
                 train_dataset,
-                num_images_to_sample_from=1,
+                num_images_to_sample_from=self.config.train_num_images_to_sample_from,
                 num_times_to_repeat_images=self.config.train_num_times_to_repeat_images,
                 device=self.device,
                 num_workers=self.world_size * 4,
@@ -203,7 +203,6 @@ class MultisceneDataManager(VanillaDataManager):
         self.eval_image_dataloaders = {}
         self.iter_eval_image_dataloaders = {}
         self.eval_pixel_samplers = {}
-        self.eval_camera_optimizers = nn.ModuleDict()
         self.eval_ray_generators = nn.ModuleDict()
         self.fixed_indices_eval_dataloaders = {}
         self.eval_dataloaders = {}
@@ -220,12 +219,9 @@ class MultisceneDataManager(VanillaDataManager):
             )
             iter_eval_image_dataloader = iter(eval_image_dataloader)
             eval_pixel_sampler = self._get_pixel_sampler(eval_dataset, self.config.eval_num_rays_per_batch)
-            eval_camera_optimizer = self.config.camera_optimizer.setup(
-                num_cameras=eval_dataset.cameras.size, device=self.device
-            )
             eval_ray_generator = RayGenerator(
                 eval_dataset.cameras.to(self.device),
-                eval_camera_optimizer,
+                self.train_camera_optimizers[scene_id],
             )
             # for loading full images
             fixed_indices_eval_dataloader = FixedIndicesEvalDataloader(
@@ -236,7 +232,7 @@ class MultisceneDataManager(VanillaDataManager):
             )
 
             eval_dataloader = RandIndicesEvalDataloader(
-                input_dataset=self.eval_dataset,
+                input_dataset=eval_dataset,
                 image_indices=self.config.eval_image_indices,
                 device=self.device,
                 num_workers=self.world_size * 2,
@@ -246,7 +242,6 @@ class MultisceneDataManager(VanillaDataManager):
             self.eval_image_dataloaders[scene_id] = eval_image_dataloader
             self.iter_eval_image_dataloaders[scene_id] = iter_eval_image_dataloader
             self.eval_pixel_samplers[scene_id] = eval_pixel_sampler
-            self.eval_camera_optimizers[scene_id] = eval_camera_optimizer
             self.eval_ray_generators[scene_id] = eval_ray_generator
             self.fixed_indices_eval_dataloaders[scene_id] = fixed_indices_eval_dataloader
             self.eval_dataloaders[scene_id] = eval_dataloader
@@ -255,7 +250,6 @@ class MultisceneDataManager(VanillaDataManager):
         self.eval_image_dataloader = self.eval_image_dataloaders[first_scene]
         self.iter_eval_image_dataloader = self.iter_eval_image_dataloaders[first_scene]
         self.eval_pixel_sampler = self.eval_pixel_samplers[first_scene]
-        self.eval_camera_optimizer = self.eval_camera_optimizers[first_scene]
         self.eval_ray_generator = self.eval_ray_generators[first_scene]
         self.fixed_indices_eval_dataloader = self.fixed_indices_eval_dataloaders[first_scene]
         self.eval_dataloader = self.eval_dataloaders[first_scene]
@@ -274,7 +268,6 @@ class MultisceneDataManager(VanillaDataManager):
         self.eval_image_dataloader = self.eval_image_dataloaders[scene_id]
         self.iter_eval_image_dataloader = self.iter_eval_image_dataloaders[scene_id]
         self.eval_pixel_sampler = self.eval_pixel_samplers[scene_id]
-        self.eval_camera_optimizer = self.eval_camera_optimizers[scene_id]
         self.eval_ray_generator = self.eval_ray_generators[scene_id]
         self.fixed_indices_eval_dataloader = self.fixed_indices_eval_dataloaders[scene_id]
         self.eval_dataloader = self.eval_dataloaders[scene_id]
@@ -284,7 +277,6 @@ class MultisceneDataManager(VanillaDataManager):
         self.eval_image_dataloader = self.eval_image_dataloaders[scene_id]
         self.iter_eval_image_dataloader = self.iter_eval_image_dataloaders[scene_id]
         self.eval_pixel_sampler = self.eval_pixel_samplers[scene_id]
-        self.eval_camera_optimizer = self.eval_camera_optimizers[scene_id]
         self.eval_ray_generator = self.eval_ray_generators[scene_id]
         self.fixed_indices_eval_dataloader = self.fixed_indices_eval_dataloaders[scene_id]
         self.eval_dataloader = self.eval_dataloaders[scene_id]

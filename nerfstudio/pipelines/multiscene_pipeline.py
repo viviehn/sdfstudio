@@ -25,6 +25,10 @@ from nerfstudio.data.datamanagers.multiscene_datamanager import (
     MultisceneDataManagerConfig,
     MultisceneDataManager
 )
+from nerfstudio.data.datamanagers.base_datamanager import (
+    VanillaDataManagerConfig,
+    VanillaDataManager
+)
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import profiler
@@ -132,6 +136,7 @@ class MultiscenePipeline(VanillaPipeline):
         aggr_loss_dict = {}
         for scene_id in self.datamanager.scene_ids:
             ray_bundle, batch = self.datamanager.next_eval(step, scene_id)
+            #ray_bundle, batch = self.datamanager.next_eval(step)
             self.model.field.geometry_encoding = self.model.field.geometry_encodings[scene_id]
             self.model.field.appearance_encoding = self.model.field.appearance_encodings[scene_id]
             if self.model.config.sdf_sample_training:
@@ -163,6 +168,7 @@ class MultiscenePipeline(VanillaPipeline):
             self.model.field.geometry_encoding = self.model.field.geometry_encodings[scene_id]
             self.model.field.appearance_encoding = self.model.field.appearance_encodings[scene_id]
             image_idx, camera_ray_bundle, batch = self.datamanager.next_eval_image(step, scene_id)
+            #image_idx, camera_ray_bundle, batch = self.datamanager.next_eval_image(step)
             #if self.model.config.sdf_sample_training:
             #    outputs = self.model.get_outputs_for_camera_ray_bundle(batch['sparse_sdf_samples'].to(self.device))
             #else:

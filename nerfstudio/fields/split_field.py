@@ -63,7 +63,8 @@ class SplitField(SDFField):
         num_images: int,
         use_average_appearance_embedding: bool = False,
         spatial_distortion: Optional[SpatialDistortion] = None,
-        build_encoders: bool = True
+        build_encoders: bool = True,
+        **kwargs
     ) -> None:
         super().__init__(config, aabb, num_images, use_average_appearance_embedding, spatial_distortion, build_color_network=False)
 
